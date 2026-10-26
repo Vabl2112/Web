@@ -16,6 +16,8 @@ interface GalleryResponse {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
+const SKELETON_HEIGHTS = [220, 280, 320, 240, 300, 260]
+
 export function GalleryPage() {
   const [activeCategory, setActiveCategory] = useState("tattoo")
   const [activeSubFilter, setActiveSubFilter] = useState<string | null>(null)
@@ -74,7 +76,7 @@ export function GalleryPage() {
                     key={row}
                     className="rounded-xl"
                     style={{
-                      height: `${Math.floor(Math.random() * 150) + 200}px`,
+                      height: `${SKELETON_HEIGHTS[(col * 3 + row) % SKELETON_HEIGHTS.length]}px`,
                     }}
                   />
                 ))}
