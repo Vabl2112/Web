@@ -95,6 +95,8 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return
+    // Shows the scroll buttons in the right state as soon as the embla API exists (an external system).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial sync with embla, then it is event driven
     onSelect(api)
     api.on('reInit', onSelect)
     api.on('select', onSelect)

@@ -76,12 +76,7 @@ const mockArtistData: ArtistProfile = {
   ]
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params
-  
+export async function GET() {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 100))
   

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import useSWR from "swr"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
@@ -23,21 +23,19 @@ export function CalculatorCard({ artistId = "1" }: CalculatorCardProps) {
     fetcher
   )
   
-  const [values, setValues] = useState<Record<string, string | number>>({})
+  // The values the user changed; everything else comes from the defaults of the loaded config.
+  const [overrides, setOverrides] = useState<Record<string, string | number>>({})
 
-  // Initialize values when config loads
-  useEffect(() => {
-    if (config?.parameters) {
-      const initialValues: Record<string, string | number> = {}
-      config.parameters.forEach(param => {
-        initialValues[param.id] = param.defaultValue
-      })
-      setValues(initialValues)
-    }
-  }, [config])
+  const values = useMemo(() => {
+    const defaults: Record<string, string | number> = {}
+    config?.parameters?.forEach(param => {
+      defaults[param.id] = param.defaultValue
+    })
+    return { ...defaults, ...overrides }
+  }, [config, overrides])
 
   const updateValue = (id: string, value: string | number) => {
-    setValues(prev => ({ ...prev, [id]: value }))
+    setOverrides(prev => ({ ...prev, [id]: value }))
   }
 
   const calculatedPrice = useMemo(() => {
@@ -55,7 +53,6 @@ export function CalculatorCard({ artistId = "1" }: CalculatorCardProps) {
       
       // Safe math evaluation (only allows numbers and basic operators)
       const sanitized = formula.replace(/[^0-9+\-*/().]/g, '')
-      // eslint-disable-next-line no-new-func
       return Math.round(new Function(`return ${sanitized}`)())
     } catch {
       return 0
