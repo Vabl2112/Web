@@ -13,6 +13,8 @@ next.user-config.*
 # Common ignores
 node_modules
 .next/
+# Next rewrites this file on every dev or build run (dev and build point it at different folders)
+next-env.d.ts
 .DS_Store
 
 # Local tooling and build artifacts
