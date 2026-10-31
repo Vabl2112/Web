@@ -1,1 +1,4 @@
 *.sh text eol=lf
+# The copy of the API contract and the types generated from it are compared by hash and by content: keep LF everywhere.
+contract/** text eol=lf
+lib/api/schema.d.ts text eol=lf linguist-generated

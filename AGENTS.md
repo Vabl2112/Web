@@ -16,7 +16,21 @@ That is probably why `typescript.ignoreBuildErrors` used to be on. Use a checkou
 - `pnpm typecheck` (`tsc --noEmit`), `pnpm lint` (ESLint, no warnings allowed), `pnpm test` (Vitest), `pnpm build`
 - `pnpm check:no-mocks`: lists what the v1 UI must lose (old mock data, out-of-scope features; AC-30, AC-31). It only warns until
   P5.5; `--strict` or `EGG_NO_MOCKS_STRICT=1` makes findings fail.
-- Gates run in CI in this order: install, typecheck, lint, test, build, check:no-mocks.
+- Gates run in CI in this order: install, api:check, typecheck, lint, test, build, check:no-mocks.
+
+## The API contract
+The source of truth is `egg-backend` (`contract/openapi/egg-v1.yaml`). This repository holds a pinned copy in `contract/`
+(`egg-v1.yaml`, `VERSION`, `acceptance-criteria.md`), the backend commit it came from (`contract/BACKEND_REF`) and the hashes of the
+copy (`contract/SHA256SUMS`). `lib/api/schema.d.ts` is generated from the copy and committed. Never edit these files by hand.
+- Update: change the contract in `egg-backend` and merge it there; then, with a local checkout of `egg-backend` next to this one
+  (or `EGG_BACKEND_DIR`), run `pnpm api:sync` (HEAD of that checkout) or `pnpm api:sync --ref contract-v0.2.0` (a tag), and commit
+  `contract/` and `lib/api/schema.d.ts`. It copies the committed content from git, so uncommitted changes are never synced.
+- `pnpm api:gen` only regenerates the types; `pnpm api:check` fails when the copy was edited by hand or the types are stale. Types are
+  generated with `--default-non-nullable false` (optional request fields with defaults stay optional) and TypeScript 5.x.
+- The repository is public, so the contract is public too. There is no image pinning and no bot PR yet (they come with the staging
+  deploy, P9.1).
+- Use the generated types with `openapi-fetch`: `createClient<paths>(...)` (see `docs/spikes/s2-client-check.ts` in `egg-backend` for
+  the shapes that matter: optional values are omitted, never `null`; `nextCursor` is the only nullable value).
 
 ## Branches, CI and merging
 - Work in a branch `feat/<phase>-<slug>`; changes reach `main` only through a pull request. Do not push, open or merge a PR without the user's approval for that action.
@@ -35,5 +49,5 @@ That is probably why `typescript.ignoreBuildErrors` used to be on. Use a checkou
 - Pin new dependencies exactly; take releases that are at least two weeks old.
 
 ## Not here yet
-`openapi-typescript`, `openapi-fetch`, `api:gen`, `api:check`, `api:sync` (P0.4); Prism and `dev:mock` (P5.1); Playwright and e2e
-(P5.3a); Testing Library (P5); `Dockerfile` and deploy workflows (P9.1).
+Publishing the backend image to ghcr.io and the bot PR `api:sync` (with the staging deploy, P9.1); Prism and `dev:mock` (P5.1);
+Playwright and e2e (P5.3a); Testing Library (P5); `Dockerfile` and deploy workflows (P9.1).

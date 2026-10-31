@@ -33,6 +33,8 @@ jobs:
       # pnpm comes from the "packageManager" field of package.json
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
+      # the contract copy is untouched and lib/api/schema.d.ts is what the generator makes of it
+      - run: pnpm api:check
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
