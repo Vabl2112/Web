@@ -18,6 +18,12 @@ That is probably why `typescript.ignoreBuildErrors` used to be on. Use a checkou
   P5.5; `--strict` or `EGG_NO_MOCKS_STRICT=1` makes findings fail.
 - Gates run in CI in this order: install, typecheck, lint, test, build, check:no-mocks.
 
+## Branches, CI and merging
+- Work in a branch `feat/<phase>-<slug>`; changes reach `main` only through a pull request. Do not push, open or merge a PR without the user's approval for that action.
+- The repository is public. CI (`.github/workflows/ci.yml`) runs on every PR and on `main` with a read-only token and no secrets; never add a secret to a workflow that runs on pull requests.
+- Merge with `scripts/merge-pr.sh <pr>`: it checks that the PR is open and not a draft, all checks succeeded and the branch contains the current `main`, then rebases the commits onto `main`. Branch protection is not used (same rule as in `egg-backend`).
+- Third-party GitHub Actions are pinned by commit hash with the version in a comment; take releases that are at least two weeks old.
+
 ## Rules
 - `next.config.mjs` takes the build number `N` for `X-EGG-Client: web/<N>` from `scripts/build-version.mjs` (commit time of HEAD).
   A build without git history fails on purpose; pass `EGG_WEB_VERSION=<N>` when there is none.
