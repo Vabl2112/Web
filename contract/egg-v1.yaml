@@ -1,0 +1,3687 @@
+openapi: 3.0.3
+info:
+  title: EGG API
+  version: 0.1.0
+  description: |
+    REST API of the EGG platform, a marketplace of creative people. This file is the source of truth for the backend and the web client.
+
+    - Authentication: server-side session in the `egg_sid` cookie (`cookieAuth`). `x-egg-auth` on every operation names the minimum access level: `public`, `user`, `verified` (user with a confirmed e-mail), `creator`, `admin`.
+    - Every non-GET request carries `X-EGG-Client: web/<N>` (or `android/<version>`); without it the answer is `403 CLIENT_HEADER_REQUIRED`. The only exception is one-click unsubscribe.
+    - Every operation except `/v1/meta/**` and one-click unsubscribe may answer `426 CLIENT_UPGRADE_REQUIRED` when the client build is older than `minSupported` (see `getClientVersions`), and `429 RATE_LIMITED` with `Retry-After`.
+    - A request with an invalid or expired session answers `401` and expires both session cookies.
+    - Errors: RFC 9457 problem details (`application/problem+json`) with a stable machine-readable `code`; clients branch on `code`, never on `title`.
+    - Lists: cursor pagination, `{items, nextCursor}`; `limit` defaults to 24 and is at most 60.
+    - Public reads answer with `ETag` and `Cache-Control: no-cache`; a matching `If-None-Match` gets `304`.
+    - Money: `bigint` minor units (kopecks) plus an ISO 4217 `currency`. Ids are UUIDs, time is UTC (RFC 3339).
+servers:
+  - url: http://localhost:8080
+    description: Local development
+tags:
+  - name: meta
+    description: Client versions and server capabilities.
+  - name: identity
+    description: Registration, sessions, password reset, current account.
+  - name: notification
+    description: E-mail notification settings and one-click unsubscribe.
+  - name: catalog
+    description: Public catalog and the creator's own showcase (profile, listings, portfolio).
+  - name: media
+    description: Image upload.
+  - name: moderation
+    description: Publication review of creator showcases and content.
+  - name: messaging
+    description: Asynchronous buyer-creator conversations (behind a feature flag).
+  - name: admin
+    description: Account suspension and pilot metrics.
+security:
+  - cookieAuth: []
+paths:
+  # ---------------------------------------------------------------- meta
+  /v1/meta/client-versions:
+    get:
+      tags: [meta]
+      operationId: getClientVersions
+      summary: Get supported client versions and server capabilities
+      description: |
+        Returns the build range the server supports for each client, the contract version of the deployed backend and the enabled feature flags.
+        Never answered with `426`.
+      x-egg-auth: public
+      security: []
+      responses:
+        '200':
+          description: Versions and capabilities.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientVersions'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ------------------------------------------------------------ identity
+  /v1/auth/register:
+    post:
+      tags: [identity]
+      operationId: registerAccount
+      summary: Register an account
+      description: |
+        Creates an account with the `BUYER` role and `emailVerified=false` and queues the confirmation e-mail (the link lives 24 hours). Does not sign the user in; call `login` afterwards.
+        The password must be at least 10 characters and not among the 10 000 most common passwords.
+        `consentVersion` is the version of the privacy/terms text the user accepted; `adultConfirmed` must be `true` (18+).
+        An already registered e-mail answers `409 EMAIL_TAKEN`; the endpoint is rate limited.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created; the confirmation e-mail is queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: The e-mail is already registered.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: E-mail already registered
+                status: 409
+                code: EMAIL_TAKEN
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/auth/verify-email:
+    post:
+      tags: [identity]
+      operationId: verifyEmail
+      summary: Confirm an e-mail address
+      description: Consumes the one-time token from the confirmation link. A used, expired or unknown token answers `410 TOKEN_INVALID`.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '204':
+          description: The e-mail is confirmed.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/auth/resend-verification:
+    post:
+      tags: [identity]
+      operationId: resendVerification
+      summary: Resend the confirmation e-mail
+      description: Queues a new confirmation e-mail for the signed-in user; earlier links stay valid until they expire.
+      x-egg-auth: user
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      responses:
+        '202':
+          description: The e-mail is queued.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: The e-mail is already confirmed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: E-mail already confirmed
+                status: 409
+                code: EMAIL_ALREADY_VERIFIED
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/auth/login:
+    post:
+      tags: [identity]
+      operationId: login
+      summary: Sign in
+      description: |
+        Creates a server-side session and returns the account; the token is never in the body.
+        Failed attempts are rate limited per (e-mail, IP), per IP and per e-mail; the answer is `429` with `Retry-After`.
+        A suspended account answers `403 ACCOUNT_SUSPENDED`.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              description: |
+                Two cookies. `egg_sid=<token>; HttpOnly; Secure; SameSite=Lax; Path=/api` carries the session; `egg_session=1; HttpOnly; Secure; SameSite=Lax; Path=/` is a secret-free marker for the web router. Both live 30 days (sliding, at most 90).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Wrong e-mail or password.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: Invalid credentials
+                status: 401
+                code: INVALID_CREDENTIALS
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/auth/logout:
+    post:
+      tags: [identity]
+      operationId: logout
+      summary: Sign out
+      description: Deletes the current session and expires both session cookies.
+      x-egg-auth: user
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      responses:
+        '204':
+          description: Signed out.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/auth/password-reset/request:
+    post:
+      tags: [identity]
+      operationId: requestPasswordReset
+      summary: Request a password reset e-mail
+      description: Always answers `202`, whether or not the account exists, so that accounts cannot be enumerated. The link lives one hour.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '202':
+          description: Accepted.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/auth/password-reset/confirm:
+    post:
+      tags: [identity]
+      operationId: confirmPasswordReset
+      summary: Set a new password with a reset token
+      description: Consumes the one-time token, sets the password and deletes every session of the user. A used, expired or unknown token answers `410 TOKEN_INVALID`.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+      responses:
+        '204':
+          description: The password is changed.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/me:
+    get:
+      tags: [identity]
+      operationId: getMe
+      summary: Get the signed-in account
+      description: Answers `401` for a guest; the web client uses this to render the signed-in state.
+      x-egg-auth: user
+      responses:
+        '200':
+          description: The account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [identity]
+      operationId: deleteMe
+      summary: Delete the account
+      description: |
+        Signing in becomes impossible at once and every session is deleted. The showcase is withdrawn, unsent e-mails are purged, and personal data is anonymised within 30 days; the counterpart of a conversation sees "Deleted user".
+      x-egg-auth: user
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      responses:
+        '204':
+          description: The account is deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # -------------------------------------------------------- notification
+  /v1/me/notification-settings:
+    get:
+      tags: [notification]
+      operationId: getNotificationSettings
+      summary: Get e-mail notification settings
+      x-egg-auth: user
+      responses:
+        '200':
+          description: The settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [notification]
+      operationId: updateNotificationSettings
+      summary: Replace e-mail notification settings
+      description: Security and account e-mails (confirmation, password reset) cannot be switched off and are not listed.
+      x-egg-auth: user
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationSettings'
+      responses:
+        '200':
+          description: The stored settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/notifications/unsubscribe:
+    post:
+      tags: [notification]
+      operationId: unsubscribe
+      summary: One-click unsubscribe (RFC 8058)
+      description: |
+        Target of the `List-Unsubscribe` header. The signed token (from the query) identifies the recipient and the e-mail category. The body is the form `List-Unsubscribe=One-Click`.
+        Exempt from `X-EGG-Client` and from `426`. `GET` is not declared and answers `405`: opening the link in the e-mail only shows the web page `/unsubscribe`, which calls this operation after the user presses a button.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Signed unsubscribe token from the e-mail.
+          schema:
+            type: string
+            maxLength: 1000
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UnsubscribeForm'
+      responses:
+        '200':
+          description: Unsubscribed; repeating the call is harmless.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnsubscribeResult'
+        '400':
+          description: The token is invalid or the form is wrong.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: Invalid unsubscribe token
+                status: 400
+                code: UNSUBSCRIBE_TOKEN_INVALID
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  # ------------------------------------------------------------- catalog
+  /v1/categories:
+    get:
+      tags: [catalog]
+      operationId: getCategories
+      summary: Get the category tree
+      description: Active categories with their subcategories, in display order. Small enough to be returned whole.
+      x-egg-auth: public
+      security: []
+      responses:
+        '200':
+          description: The category tree.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryList'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/cities:
+    get:
+      tags: [catalog]
+      operationId: searchCities
+      summary: Search cities
+      description: Autocomplete over the city directory. Without `q` returns the first cities in alphabetical order.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive prefix or fragment of the city name.
+          schema:
+            type: string
+            maxLength: 100
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Matching cities.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityList'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/creators:
+    get:
+      tags: [catalog]
+      operationId: listCreators
+      summary: List published showcases
+      description: |
+        Only showcases in status `PUBLISHED` without suspension reasons. Newest first (`publishedAt` descending, then id).
+        Without `cityId` every city and showcases without a city are returned; with `cityId` only that city.
+        `q` searches name, description and tags with Russian morphology and tolerates typos.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+        - $ref: '#/components/parameters/CityId'
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of showcases.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatorSummaryPage'
+              examples:
+                default:
+                  $ref: '#/components/examples/CreatorSummaryPage'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/creators/{id}:
+    get:
+      tags: [catalog]
+      operationId: getCreator
+      summary: Get a published showcase
+      description: An unknown, unpublished or suspended showcase answers `404`.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CreatorId'
+      responses:
+        '200':
+          description: The showcase.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatorProfile'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/creators/{id}/listings:
+    get:
+      tags: [catalog]
+      operationId: listCreatorListings
+      summary: List the active approved listings of a showcase
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CreatorId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of listings.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingSummaryPage'
+              examples:
+                default:
+                  $ref: '#/components/examples/ListingSummaryPage'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/creators/{id}/portfolio-items:
+    get:
+      tags: [catalog]
+      operationId: listCreatorPortfolioItems
+      summary: List the approved portfolio works of a showcase
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CreatorId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of works in the order chosen by the creator.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioItemPage'
+              examples:
+                default:
+                  $ref: '#/components/examples/PortfolioItemPage'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/listings:
+    get:
+      tags: [catalog]
+      operationId: listListings
+      summary: List listings of all three types
+      description: |
+        Services, ready products and made-to-order items in one list, newest first. Only approved `ACTIVE` listings of published showcases.
+        With `cityId` and `includeDelivery=true` (the default) listings with delivery are added to the listings of that city.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+        - name: type
+          in: query
+          required: false
+          description: Listing types to include; repeat the parameter for several.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ListingType'
+        - $ref: '#/components/parameters/CityId'
+        - name: includeDelivery
+          in: query
+          required: false
+          description: Together with `cityId`, also return listings that can be delivered.
+          schema:
+            type: boolean
+            default: true
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of listings.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingSummaryPage'
+              examples:
+                default:
+                  $ref: '#/components/examples/ListingSummaryPage'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/listings/{id}:
+    get:
+      tags: [catalog]
+      operationId: getListing
+      summary: Get an approved active listing
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: The listing.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/gallery:
+    get:
+      tags: [catalog]
+      operationId: listGalleryItems
+      summary: List portfolio works of published showcases as a feed
+      description: Only approved works of published showcases, newest first. A tile links to the showcase of its creator.
+      x-egg-auth: public
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+        - name: subcategoryId
+          in: query
+          required: false
+          description: Subcategory filter.
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of works.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GalleryItemPage'
+              examples:
+                default:
+                  $ref: '#/components/examples/GalleryItemPage'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  # ------------------------------------------- catalog: creator's own showcase
+  /v1/me/creator-profile:
+    post:
+      tags: [catalog]
+      operationId: createMyCreatorProfile
+      summary: Create the showcase and become a creator
+      description: |
+        In one transaction creates the showcase in status `DRAFT` and grants the `CREATOR` role. Every field is optional at this point; the minimum for publication is checked when the showcase is submitted for review.
+        Requires a confirmed e-mail (`403 EMAIL_NOT_VERIFIED`). A second call answers `409 CREATOR_PROFILE_EXISTS`.
+      x-egg-auth: verified
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatorProfileInput'
+      responses:
+        '201':
+          description: The showcase is created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyCreatorProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The e-mail is not confirmed, or `X-EGG-Client` is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: E-mail is not confirmed
+                status: 403
+                code: EMAIL_NOT_VERIFIED
+        '409':
+          description: The showcase already exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: Showcase already exists
+                status: 409
+                code: CREATOR_PROFILE_EXISTS
+    get:
+      tags: [catalog]
+      operationId: getMyCreatorProfile
+      summary: Get my showcase with review states
+      x-egg-auth: creator
+      responses:
+        '200':
+          description: The showcase as the creator sees it, including pending content and the rejection reason.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyCreatorProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags: [catalog]
+      operationId: updateMyCreatorProfile
+      summary: Replace the text fields of my showcase
+      description: |
+        Replaces `displayName`, `bio`, `categoryId`, `tags` and `cityId`; an omitted field is cleared. `avatarMediaId` is the exception: omitted keeps the current avatar, a new media id replaces it (on a published showcase the new avatar waits for approval while the old one stays public). Remove the avatar with `deleteMyAvatar`.
+        On a published showcase text changes are visible at once and set `changedSinceReview`; clearing `displayName` or `categoryId` answers `409 SHOWCASE_MINIMUM_VIOLATION`.
+        A media id that is unknown or belongs to somebody else answers `404`.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatorProfileInput'
+      responses:
+        '200':
+          description: The stored showcase.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyCreatorProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The change would break the minimum of a published showcase.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: Published showcase must keep its minimum
+                status: 409
+                code: SHOWCASE_MINIMUM_VIOLATION
+  /v1/me/creator-profile/avatar:
+    delete:
+      tags: [catalog]
+      operationId: deleteMyAvatar
+      summary: Remove the avatar
+      description: Removes the pending avatar if there is one, otherwise the current avatar. Applied at once.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      responses:
+        '204':
+          description: The avatar is removed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/me/creator-profile/publication-checklist:
+    get:
+      tags: [catalog]
+      operationId: getPublicationChecklist
+      summary: Check what is missing for publication
+      description: The minimum is a display name, a category, at least one approved-or-pending listing and at least three portfolio works.
+      x-egg-auth: creator
+      responses:
+        '200':
+          description: The checklist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationChecklist'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/me/listings:
+    post:
+      tags: [catalog]
+      operationId: createMyListing
+      summary: Create a listing
+      description: |
+        `type` is fixed at creation. Fields of other types must be absent: `durationText` for `SERVICE`, `inStock` for `READY_PRODUCT`, `leadTimeDays` (required, 1..365) for `MADE_TO_ORDER`; violations answer `400` with per-field errors.
+        On a published showcase the new listing waits for approval (`reviewStatus=PENDING`) and is not public until then.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateListingRequest'
+      responses:
+        '201':
+          description: The listing is created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyListing'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    get:
+      tags: [catalog]
+      operationId: listMyListings
+      summary: List my listings
+      description: All statuses except deleted, newest first, with review states.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of my listings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyListingPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/me/listings/{id}:
+    get:
+      tags: [catalog]
+      operationId: getMyListing
+      summary: Get my listing
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: The listing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyListing'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [catalog]
+      operationId: updateMyListing
+      summary: Replace the fields of my listing
+      description: |
+        Replaces every field except `type`; an omitted optional field is cleared. Photos are managed by their own operations.
+        On a published showcase text changes are visible at once; the showcase is flagged `changedSinceReview`.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/ListingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListingInput'
+      responses:
+        '200':
+          description: The stored listing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyListing'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [catalog]
+      operationId: deleteMyListing
+      summary: Delete my listing
+      description: |
+        Applied at once and detaches its photos. Deleting the last approved listing of a published showcase answers `409 SHOWCASE_MINIMUM_VIOLATION`: add a replacement first.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '204':
+          description: The listing is deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The listing is the last approved one of a published showcase.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: Published showcase must keep its minimum
+                status: 409
+                code: SHOWCASE_MINIMUM_VIOLATION
+  /v1/me/listings/{id}/photos:
+    post:
+      tags: [catalog]
+      operationId: addMyListingPhoto
+      summary: Attach an uploaded image to my listing as a photo
+      description: |
+        A listing has at most 10 photos (`409 LISTING_PHOTO_LIMIT`). The image of a photo never changes: to replace it, add a new one and delete the old one.
+        On a published showcase a new photo waits for approval. An unknown media id, or one that belongs to somebody else or is already deleted, answers `404`.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/ListingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddListingPhotoRequest'
+      responses:
+        '201':
+          description: The photo is attached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingPhoto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The listing already has 10 photos.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: Too many photos
+                status: 409
+                code: LISTING_PHOTO_LIMIT
+  /v1/me/listings/{id}/photos/{photoId}:
+    delete:
+      tags: [catalog]
+      operationId: deleteMyListingPhoto
+      summary: Delete a photo of my listing
+      description: Applied at once; the image is detached and its files are deleted later.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/ListingId'
+        - name: photoId
+          in: path
+          required: true
+          description: Photo id.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The photo is deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/me/portfolio-items:
+    post:
+      tags: [catalog]
+      operationId: createMyPortfolioItem
+      summary: Add a work to my portfolio
+      description: |
+        The image of a work never changes. On a published showcase the new work waits for approval and is not public until then.
+        An unknown media id, or one that belongs to somebody else, answers `404`.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePortfolioItemRequest'
+      responses:
+        '201':
+          description: The work is added at the end of the portfolio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyPortfolioItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    get:
+      tags: [catalog]
+      operationId: getMyPortfolioItems
+      summary: Get my whole portfolio in order
+      description: 'Not paginated: the portfolio is ordered as a whole by `reorderMyPortfolioItems`.'
+      x-egg-auth: creator
+      responses:
+        '200':
+          description: Every work with its review state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyPortfolioItemList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/me/portfolio-items/order:
+    put:
+      tags: [catalog]
+      operationId: reorderMyPortfolioItems
+      summary: Set the order of my portfolio
+      description: '`itemIds` must contain every work of the portfolio exactly once, otherwise `422 PORTFOLIO_ORDER_MISMATCH`.'
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderPortfolioItemsRequest'
+      responses:
+        '204':
+          description: The order is stored.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: The list does not match the works of the portfolio.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: Order does not match the portfolio
+                status: 422
+                code: PORTFOLIO_ORDER_MISMATCH
+  /v1/me/portfolio-items/{id}:
+    put:
+      tags: [catalog]
+      operationId: updateMyPortfolioItem
+      summary: Replace the fields of a work
+      description: Replaces `title`, `categoryId` and `subcategoryId`; the image and the position do not change.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/PortfolioItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioItemInput'
+      responses:
+        '200':
+          description: The stored work.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyPortfolioItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [catalog]
+      operationId: deleteMyPortfolioItem
+      summary: Delete a work
+      description: |
+        Applied at once; the image is detached. Deleting the third approved work of a published showcase answers `409 SHOWCASE_MINIMUM_VIOLATION`: add a replacement first.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/PortfolioItemId'
+      responses:
+        '204':
+          description: The work is deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The work is needed for the minimum of a published showcase.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: Published showcase must keep its minimum
+                status: 409
+                code: SHOWCASE_MINIMUM_VIOLATION
+
+  # ---------------------------------------------------------- moderation
+  /v1/me/creator-profile/submit:
+    post:
+      tags: [moderation]
+      operationId: submitMyCreatorProfile
+      summary: Submit the showcase for review
+      description: |
+        Moves the showcase from `DRAFT` (or from `REJECTED` after corrections) to `PENDING_REVIEW` when the minimum is met: a display name, a category, at least one listing and at least three portfolio works.
+        Otherwise `422 SHOWCASE_MINIMUM_NOT_MET` lists exactly the unmet requirements in `missing` and the status stays `DRAFT`. A showcase in any other status answers `409 INVALID_SHOWCASE_STATE`.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      responses:
+        '200':
+          description: The showcase is waiting for review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyCreatorProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: The showcase is not in a status that can be submitted.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: The showcase cannot be submitted now
+                status: 409
+                code: INVALID_SHOWCASE_STATE
+        '422':
+          description: The minimum for publication is not met.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: The showcase does not meet the minimum
+                status: 422
+                code: SHOWCASE_MINIMUM_NOT_MET
+                missing: [LISTING_MIN_1, PORTFOLIO_MIN_3]
+  /v1/admin/moderation/queue:
+    get:
+      tags: [moderation]
+      operationId: listModerationQueue
+      summary: List showcases waiting for review
+      description: |
+        `PENDING_REVIEW` - submitted showcases; `NEW_CONTENT` - published showcases with new avatars, photos, works or listings waiting for approval; `CHANGED` - published showcases whose text was edited after the last review (post-moderation, OD-10). Oldest first.
+      x-egg-auth: admin
+      parameters:
+        - name: state
+          in: query
+          required: false
+          description: Which queue to list.
+          schema:
+            $ref: '#/components/schemas/ModerationQueueState'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of queue entries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationQueuePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/admin/creators/{id}:
+    get:
+      tags: [moderation]
+      operationId: getAdminCreator
+      summary: Preview a showcase for review
+      description: The showcase in any status with its owner, every listing and every work, including content that waits for approval next to the approved version.
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/CreatorId'
+      responses:
+        '200':
+          description: The showcase as the moderator sees it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCreatorView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/admin/creators/{id}/approve:
+    post:
+      tags: [moderation]
+      operationId: approveCreator
+      summary: Approve a showcase
+      description: |
+        `PENDING_REVIEW` to `PUBLISHED`; sets `publishedAt` and queues the e-mail to the creator. The owner must be `ACTIVE` (`409 OWNER_NOT_ACTIVE`) and the showcase must carry no suspension reason (`409 SHOWCASE_SUSPENDED`); a showcase in another status answers `409 INVALID_SHOWCASE_STATE`.
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/CreatorId'
+      responses:
+        '200':
+          description: The showcase is published.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyCreatorProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The decision is not allowed now.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: The owner account is not active
+                status: 409
+                code: OWNER_NOT_ACTIVE
+  /v1/admin/creators/{id}/reject:
+    post:
+      tags: [moderation]
+      operationId: rejectCreator
+      summary: Reject a showcase
+      description: '`PENDING_REVIEW` to `REJECTED` with a reason (1..1000 characters) that the creator sees in the cabinet and in the e-mail. After corrections the creator can submit again.'
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/CreatorId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: The showcase is rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyCreatorProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The showcase is not waiting for review.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: The showcase cannot be rejected now
+                status: 409
+                code: INVALID_SHOWCASE_STATE
+  /v1/admin/creators/{id}/suspend:
+    post:
+      tags: [moderation]
+      operationId: suspendCreator
+      summary: Suspend a showcase
+      description: Adds the reason `ADMIN` in any status; the public endpoints answer `404` while any suspension reason remains. Written to the audit log.
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/CreatorId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: The showcase is suspended.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyCreatorProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/admin/creators/{id}/unsuspend:
+    post:
+      tags: [moderation]
+      operationId: unsuspendCreator
+      summary: Lift the administrator's suspension of a showcase
+      description: Removes the reason `ADMIN`; the showcase is public again only when no other reason (`ACCOUNT_SUSPENDED`) remains and its status is `PUBLISHED`.
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/CreatorId'
+      responses:
+        '200':
+          description: The suspension is lifted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyCreatorProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/admin/creators/{id}/content/approve:
+    post:
+      tags: [moderation]
+      operationId: approveCreatorContent
+      summary: Approve new content of a published showcase
+      description: Approves the listed pending content (new avatar, photos, works, listings); without a body approves everything that waits.
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/CreatorId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveContentRequest'
+      responses:
+        '204':
+          description: The content is approved and public.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Some of the listed content does not wait for approval.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: The content is not waiting for review
+                status: 422
+                code: CONTENT_NOT_PENDING
+  /v1/admin/creators/{id}/content/reject:
+    post:
+      tags: [moderation]
+      operationId: rejectCreatorContent
+      summary: Reject new content of a published showcase
+      description: Rejects the listed pending content with a reason; the previously approved version stays public and the rejected media is detached, so its files are deleted later.
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/CreatorId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectContentRequest'
+      responses:
+        '204':
+          description: The content is rejected.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Some of the listed content does not wait for approval.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: The content is not waiting for review
+                status: 422
+                code: CONTENT_NOT_PENDING
+
+  # --------------------------------------------------------------- admin
+  /v1/admin/users/{id}/suspend:
+    post:
+      tags: [admin]
+      operationId: suspendUser
+      summary: Suspend an account
+      description: |
+        Signing in answers `403 ACCOUNT_SUSPENDED` and every session of the user answers `401` from the next request. The showcase of the user gets the suspension reason `ACCOUNT_SUSPENDED`. Written to the audit log.
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: The account is suspended.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserRef'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/admin/users/{id}/unsuspend:
+    post:
+      tags: [admin]
+      operationId: unsuspendUser
+      summary: Lift the suspension of an account
+      description: The account can sign in again; the reason `ACCOUNT_SUSPENDED` is removed from its showcase.
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: The suspension is lifted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserRef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/admin/metrics/inquiries:
+    get:
+      tags: [admin]
+      operationId: getInquiryMetrics
+      summary: Get the inquiry metrics of the pilot
+      description: |
+        Every new conversation counts as one inquiry. `replyRate` is the share of new conversations in which the creator replied (omitted when there are none). Test accounts are excluded.
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/MetricsFrom'
+        - $ref: '#/components/parameters/MetricsTo'
+        - $ref: '#/components/parameters/MetricsGroupBy'
+      responses:
+        '200':
+          description: One bucket per month.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InquiryMetrics'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/admin/metrics/showcases:
+    get:
+      tags: [admin]
+      operationId: getShowcaseMetrics
+      summary: Get the showcase metrics of the pilot
+      description: Active (published and not suspended) showcases and newly published ones per month, plus the current number of showcases per status. Test accounts are excluded.
+      x-egg-auth: admin
+      parameters:
+        - $ref: '#/components/parameters/MetricsFrom'
+        - $ref: '#/components/parameters/MetricsTo'
+        - $ref: '#/components/parameters/MetricsGroupBy'
+      responses:
+        '200':
+          description: One bucket per month and the status counts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowcaseMetrics'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ----------------------------------------------------------- messaging
+  /v1/conversations:
+    post:
+      tags: [messaging]
+      operationId: startConversation
+      summary: Write to a creator
+      description: |
+        One conversation per buyer-creator pair (OD-11). The first call creates it and answers `201`; a later call with the same creator adds the message to the existing conversation and answers `200`. `listingId` shows that listing as a card with the message.
+        Repeating a call with the same `clientMessageId` never duplicates the message or the conversation; the stored result is returned with `200`.
+        Writing to your own showcase answers `422 CANNOT_MESSAGE_SELF`; an unknown or unpublished showcase answers `404`; an unconfirmed e-mail `403 EMAIL_NOT_VERIFIED`. At most 10 new conversations per hour and 30 messages per minute (`429`).
+        While the feature flag is off every messaging operation answers `404` to everyone.
+      x-egg-auth: verified
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartConversationRequest'
+      responses:
+        '200':
+          description: The message is added to the existing conversation of the pair.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '201':
+          description: The conversation is created with the first message.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The e-mail is not confirmed, or `X-EGG-Client` is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: E-mail is not confirmed
+                status: 403
+                code: EMAIL_NOT_VERIFIED
+        '404':
+          $ref: '#/components/responses/MessagingNotFound'
+        '422':
+          description: The buyer and the creator are the same person.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: You cannot write to yourself
+                status: 422
+                code: CANNOT_MESSAGE_SELF
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    get:
+      tags: [messaging]
+      operationId: listConversations
+      summary: List my conversations
+      description: As buyer and as creator, most recently active first, with the unread counter of each.
+      x-egg-auth: user
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of conversations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MessagingNotFound'
+  /v1/conversations/{id}:
+    get:
+      tags: [messaging]
+      operationId: getConversation
+      summary: Get a conversation
+      description: Only a participant sees it; anybody else gets `404`, so its existence is not revealed.
+      x-egg-auth: user
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          description: The conversation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MessagingNotFound'
+  /v1/conversations/{id}/messages:
+    get:
+      tags: [messaging]
+      operationId: getMessages
+      summary: Get messages after a sequence number
+      description: |
+        Polling endpoint. Returns the messages with `seq` greater than `after`, ascending; `seq` counts 1, 2, 3 inside a conversation without gaps. Without new messages, or when `If-None-Match` matches, the answer is an immediate `304`; the endpoint never waits.
+      x-egg-auth: user
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - name: after
+          in: query
+          required: false
+          description: Last sequence number the client already has.
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          description: Page size.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: New messages, oldest first.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageList'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MessagingNotFound'
+    post:
+      tags: [messaging]
+      operationId: sendMessage
+      summary: Send a message
+      description: |
+        The text is 1..4000 characters after trimming. Repeating a call with the same `clientMessageId` returns the stored message with `200` instead of creating a second one. At most 30 messages per minute (`429`).
+      x-egg-auth: verified
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '200':
+          description: The message was already stored (repeat of `clientMessageId`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '201':
+          description: The message is stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/MessagingNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/conversations/{id}/read:
+    post:
+      tags: [messaging]
+      operationId: markConversationRead
+      summary: Mark the conversation as read
+      description: Resets the unread counter of this conversation for the caller.
+      x-egg-auth: user
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '204':
+          description: Marked as read.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/MessagingNotFound'
+  /v1/me/inbox/summary:
+    get:
+      tags: [messaging]
+      operationId: getInboxSummary
+      summary: Get the unread counters
+      description: A light request for the header badge, polled every 30 seconds.
+      x-egg-auth: user
+      responses:
+        '200':
+          description: The counters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MessagingNotFound'
+
+  # --------------------------------------------------------------- media
+  /v1/media:
+    post:
+      tags: [media]
+      operationId: uploadMedia
+      summary: Upload an image
+      description: |
+        JPEG, PNG or WebP up to 10 MB and 40 megapixels. The server strips EXIF/GPS and stores 320/640/1280 px JPEG variants.
+        The image is private to the uploader until it is attached to the showcase (avatar, listing photo, portfolio item) and, for a published showcase, approved. Unattached uploads are deleted after 24 hours.
+        Other types answer `415`; larger files `413`; more than 40 megapixels `422 IMAGE_TOO_LARGE` (checked from the header, without decoding); a busy converter `503` with `Retry-After`.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaUploadRequest'
+      responses:
+        '201':
+          description: The image is stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaUpload'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: egg_sid
+      description: Opaque server-side session token issued by login; the browser sends it automatically.
+  headers:
+    ETag:
+      description: Validator of the representation; send it back as `If-None-Match`.
+      schema:
+        type: string
+  parameters:
+    EggClient:
+      name: X-EGG-Client
+      in: header
+      required: true
+      description: Client build, `web/<N>` where N is the Unix time (seconds) of the web commit, or `android/<version>`. Required on every non-GET request except one-click unsubscribe.
+      schema:
+        type: string
+        pattern: '^(web/[0-9]+|android/[0-9]+\.[0-9]+\.[0-9]+)$'
+        example: web/1761900000
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor from `nextCursor` of the previous page.
+      schema:
+        type: string
+        maxLength: 500
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 60
+        default: 24
+    CategoryId:
+      name: categoryId
+      in: query
+      required: false
+      description: Category filter.
+      schema:
+        type: string
+        format: uuid
+    CityId:
+      name: cityId
+      in: query
+      required: false
+      description: City filter.
+      schema:
+        type: string
+        format: uuid
+    SearchQuery:
+      name: q
+      in: query
+      required: false
+      description: Free-text search with Russian morphology; tolerates typos.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+    CreatorId:
+      name: id
+      in: path
+      required: true
+      description: Showcase id.
+      schema:
+        type: string
+        format: uuid
+    ListingId:
+      name: id
+      in: path
+      required: true
+      description: Listing id.
+      schema:
+        type: string
+        format: uuid
+    PortfolioItemId:
+      name: id
+      in: path
+      required: true
+      description: Portfolio work id.
+      schema:
+        type: string
+        format: uuid
+    UserId:
+      name: id
+      in: path
+      required: true
+      description: Account id.
+      schema:
+        type: string
+        format: uuid
+    ConversationId:
+      name: id
+      in: path
+      required: true
+      description: Conversation id.
+      schema:
+        type: string
+        format: uuid
+    MetricsFrom:
+      name: from
+      in: query
+      required: false
+      description: First day of the period (inclusive); defaults to the first day of the month three months before `to`.
+      schema:
+        type: string
+        format: date
+    MetricsTo:
+      name: to
+      in: query
+      required: false
+      description: Last day of the period (inclusive); defaults to today.
+      schema:
+        type: string
+        format: date
+    MetricsGroupBy:
+      name: groupBy
+      in: query
+      required: false
+      description: Bucket size; only months in v1.
+      schema:
+        type: string
+        enum: [month]
+        default: month
+  responses:
+    BadRequest:
+      description: The request is malformed or failed validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Validation failed
+            status: 400
+            code: VALIDATION_FAILED
+            errors:
+              - field: email
+                code: INVALID_FORMAT
+                message: Must be a valid e-mail address.
+    Unauthorized:
+      description: No valid session.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Authentication required
+            status: 401
+            code: UNAUTHENTICATED
+    Forbidden:
+      description: The caller has no right to perform the operation, or `X-EGG-Client` is missing.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Forbidden
+            status: 403
+            code: FORBIDDEN
+    NotFound:
+      description: The resource does not exist or is not visible to the caller.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Not found
+            status: 404
+            code: NOT_FOUND
+    MessagingNotFound:
+      description: The conversation does not exist, the caller is not a participant, or messaging is disabled by the feature flag (then every messaging operation answers this to everyone).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Not found
+            status: 404
+            code: NOT_FOUND
+    Gone:
+      description: The one-time token was used, has expired or is unknown.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Token is no longer valid
+            status: 410
+            code: TOKEN_INVALID
+    PayloadTooLarge:
+      description: The request body exceeds the allowed size.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Payload too large
+            status: 413
+            code: PAYLOAD_TOO_LARGE
+    UnsupportedMediaType:
+      description: The file type is not supported.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Unsupported media type
+            status: 415
+            code: UNSUPPORTED_MEDIA_TYPE
+    UnprocessableEntity:
+      description: The request is well-formed but cannot be processed, for example an image above 40 megapixels.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Image is too large
+            status: 422
+            code: IMAGE_TOO_LARGE
+    TooManyRequests:
+      description: Rate limit exceeded.
+      headers:
+        Retry-After:
+          description: Seconds to wait before the next attempt.
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Too many requests
+            status: 429
+            code: RATE_LIMITED
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Internal server error
+            status: 500
+            code: INTERNAL_ERROR
+    ServiceUnavailable:
+      description: The server is busy; try again later.
+      headers:
+        Retry-After:
+          description: Seconds to wait before the next attempt.
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Service unavailable
+            status: 503
+            code: SERVICE_BUSY
+    NotModified:
+      description: The representation has not changed since the `If-None-Match` validator.
+  examples:
+    CreatorSummaryPage:
+      summary: A page with one showcase
+      value:
+        items:
+          - id: 0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11
+            displayName: Anna Ceramics
+            category:
+              id: 0192f1c6-1111-7000-8000-000000000001
+              slug: ceramics
+              name: Ceramics
+            city:
+              id: 0192f1c6-2222-7000-8000-000000000002
+              name: Kazan
+              region: Tatarstan
+            avatar:
+              width: 800
+              height: 800
+              variants:
+                - width: 320
+                  url: https://media.example.org/m/a1b2c3/320.jpg
+                - width: 640
+                  url: https://media.example.org/m/a1b2c3/640.jpg
+            tags: [mugs, handmade]
+        nextCursor: eyJrIjoiMjAyNi0xMC0yNSIsImkiOiIwMTkyZjFjNiJ9
+    ListingSummaryPage:
+      summary: A page with one listing
+      value:
+        items:
+          - id: 0192f1c6-3333-7000-8000-000000000003
+            creator:
+              id: 0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11
+              displayName: Anna Ceramics
+            type: READY_PRODUCT
+            title: Handmade mug
+            category:
+              id: 0192f1c6-1111-7000-8000-000000000001
+              slug: ceramics
+              name: Ceramics
+            priceFromMinor: 250000
+            currency: RUB
+            deliveryAvailable: true
+            photo:
+              width: 1200
+              height: 900
+              variants:
+                - width: 320
+                  url: https://media.example.org/m/d4e5f6/320.jpg
+                - width: 640
+                  url: https://media.example.org/m/d4e5f6/640.jpg
+        nextCursor: null
+    PortfolioItemPage:
+      summary: A page with one work
+      value:
+        items:
+          - id: 0192f1c6-4444-7000-8000-000000000004
+            title: Blue glaze series
+            category:
+              id: 0192f1c6-1111-7000-8000-000000000001
+              slug: ceramics
+              name: Ceramics
+            image:
+              width: 1600
+              height: 1200
+              variants:
+                - width: 640
+                  url: https://media.example.org/m/070809/640.jpg
+                - width: 1280
+                  url: https://media.example.org/m/070809/1280.jpg
+        nextCursor: null
+    GalleryItemPage:
+      summary: A page with one work
+      value:
+        items:
+          - id: 0192f1c6-4444-7000-8000-000000000004
+            creatorId: 0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11
+            title: Blue glaze series
+            category:
+              id: 0192f1c6-1111-7000-8000-000000000001
+              slug: ceramics
+              name: Ceramics
+            image:
+              width: 1600
+              height: 1200
+              variants:
+                - width: 640
+                  url: https://media.example.org/m/070809/640.jpg
+                - width: 1280
+                  url: https://media.example.org/m/070809/1280.jpg
+        nextCursor: eyJrIjoiMjAyNi0xMC0yNCIsImkiOiIwMTkyZjFjNiJ9
+  schemas:
+    ProblemDetail:
+      type: object
+      description: RFC 9457 problem details with a stable machine-readable `code`.
+      required: [title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          type: string
+          description: Stable error code, UPPER_SNAKE_CASE; clients branch on it, never on `title`.
+          pattern: '^[A-Z][A-Z0-9_]*$'
+        errors:
+          type: array
+          description: Per-field validation errors.
+          items:
+            $ref: '#/components/schemas/FieldError'
+        missing:
+          type: array
+          description: 'Present with `SHOWCASE_MINIMUM_NOT_MET`: exactly the unmet requirements.'
+          items:
+            $ref: '#/components/schemas/MissingRequirement'
+    FieldError:
+      type: object
+      required: [field, code]
+      properties:
+        field:
+          type: string
+          description: JSON path of the invalid field.
+        code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]*$'
+        message:
+          type: string
+    CursorPage:
+      type: object
+      description: Envelope of every list response. List schemas extend it with `allOf` and add `items`.
+      required: [nextCursor]
+      properties:
+        nextCursor:
+          type: string
+          nullable: true
+          description: Cursor of the next page; null on the last page.
+    ImageRef:
+      type: object
+      description: An image with its available widths; URLs are absolute and served by nginx `/media/`.
+      required: [width, height, variants]
+      properties:
+        width:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Width of the largest variant in pixels.
+        height:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Height of the largest variant in pixels.
+        variants:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ImageVariant'
+    ImageVariant:
+      type: object
+      required: [width, url]
+      properties:
+        width:
+          type: integer
+          format: int32
+          minimum: 1
+        url:
+          type: string
+          format: uri
+    ClientVersions:
+      type: object
+      required: [contractVersion, clients, features]
+      properties:
+        contractVersion:
+          type: string
+          description: Version of the contract implemented by the deployed backend (`contract/VERSION`).
+          example: 0.1.0
+        clients:
+          $ref: '#/components/schemas/ClientVersionsByPlatform'
+        features:
+          $ref: '#/components/schemas/Features'
+      example:
+        contractVersion: 0.1.0
+        clients:
+          web:
+            minSupported: '1761500000'
+            latest: '1761900000'
+          android:
+            minSupported: 0.9.0
+            latest: 0.9.3
+        features:
+          messaging: false
+    ClientVersionsByPlatform:
+      type: object
+      required: [web, android]
+      properties:
+        web:
+          $ref: '#/components/schemas/ClientVersionRange'
+        android:
+          $ref: '#/components/schemas/ClientVersionRange'
+    ClientVersionRange:
+      type: object
+      required: [minSupported, latest]
+      properties:
+        minSupported:
+          type: string
+          description: Oldest supported build; older builds get `426`. Web - the decimal build number `N` of `X-EGG-Client`; Android - a semantic version.
+        latest:
+          type: string
+          description: Newest known build in the same notation.
+    Features:
+      type: object
+      required: [messaging]
+      properties:
+        messaging:
+          type: boolean
+          description: Whether the messaging operations are enabled; when false every `messaging` operation answers `404`.
+    Role:
+      type: string
+      enum: [BUYER, CREATOR, ADMIN]
+    Account:
+      type: object
+      required: [id, email, name, emailVerified, roles, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          description: Name shown to the other side of a conversation.
+        emailVerified:
+          type: boolean
+        roles:
+          type: array
+          description: Every account is a `BUYER`; `CREATOR` appears after the showcase is created; `ADMIN` is never granted through the API.
+          items:
+            $ref: '#/components/schemas/Role'
+        createdAt:
+          type: string
+          format: date-time
+      example:
+        id: 0192f1c6-5555-7000-8000-000000000005
+        email: anna@example.org
+        name: Anna
+        emailVerified: false
+        roles: [BUYER]
+        createdAt: '2026-10-26T12:00:00Z'
+    RegisterRequest:
+      type: object
+      required: [email, name, password, consentVersion, adultConfirmed]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        password:
+          type: string
+          format: password
+          minLength: 10
+          maxLength: 128
+        consentVersion:
+          type: string
+          maxLength: 40
+          description: Version of the privacy and terms text the user accepted.
+        adultConfirmed:
+          type: boolean
+          description: The user confirms being at least 18; must be `true`.
+      example:
+        email: anna@example.org
+        name: Anna
+        password: correct horse battery
+        consentVersion: '2026-10'
+        adultConfirmed: true
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          maxLength: 128
+      example:
+        email: anna@example.org
+        password: correct horse battery
+    TokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          maxLength: 200
+      example:
+        token: dGhpcy1pcy1hbi1leGFtcGxlLXRva2Vu
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+      example:
+        email: anna@example.org
+    PasswordResetConfirmRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+          maxLength: 200
+        newPassword:
+          type: string
+          format: password
+          minLength: 10
+          maxLength: 128
+      example:
+        token: dGhpcy1pcy1hbi1leGFtcGxlLXRva2Vu
+        newPassword: another long passphrase
+    EmailCategory:
+      type: string
+      description: Category of an e-mail the user can switch off.
+      enum: [NEW_MESSAGE]
+    NotificationSettings:
+      type: object
+      required: [newMessage]
+      properties:
+        newMessage:
+          type: boolean
+          description: E-mail about a new unread message (at most one per conversation per 15 minutes, without the message text).
+      example:
+        newMessage: true
+    UnsubscribeForm:
+      type: object
+      required: [List-Unsubscribe]
+      properties:
+        List-Unsubscribe:
+          type: string
+          enum: [One-Click]
+    UnsubscribeResult:
+      type: object
+      required: [category]
+      properties:
+        category:
+          $ref: '#/components/schemas/EmailCategory'
+      example:
+        category: NEW_MESSAGE
+    Subcategory:
+      type: object
+      required: [id, slug, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+    Category:
+      type: object
+      required: [id, slug, name, children]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subcategory'
+      example:
+        id: 0192f1c6-1111-7000-8000-000000000001
+        slug: ceramics
+        name: Ceramics
+        children:
+          - id: 0192f1c6-1111-7000-8000-000000000011
+            slug: tableware
+            name: Tableware
+    CategoryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+    CategoryRef:
+      type: object
+      required: [id, slug, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+    City:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        region:
+          type: string
+      example:
+        id: 0192f1c6-2222-7000-8000-000000000002
+        name: Kazan
+        region: Tatarstan
+    CityList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/City'
+    CreatorRef:
+      type: object
+      required: [id, displayName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+    CreatorSummary:
+      type: object
+      description: A showcase card in lists.
+      required: [id, displayName, category, tags]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        city:
+          $ref: '#/components/schemas/City'
+        avatar:
+          $ref: '#/components/schemas/ImageRef'
+        tags:
+          type: array
+          items:
+            type: string
+    CreatorSummaryPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreatorSummary'
+    CreatorProfile:
+      type: object
+      description: A published showcase. Optional values (`bio`, `city`, `avatar`) are omitted when absent and `tags` may be empty, so the page can hide empty sections.
+      required: [id, displayName, category, tags, publishedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          maxLength: 80
+        bio:
+          type: string
+          maxLength: 2000
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        tags:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            maxLength: 30
+        city:
+          $ref: '#/components/schemas/City'
+        avatar:
+          $ref: '#/components/schemas/ImageRef'
+        publishedAt:
+          type: string
+          format: date-time
+      example:
+        id: 0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11
+        displayName: Anna Ceramics
+        bio: Wheel-thrown tableware, glazed by hand.
+        category:
+          id: 0192f1c6-1111-7000-8000-000000000001
+          slug: ceramics
+          name: Ceramics
+        tags: [mugs, handmade]
+        publishedAt: '2026-10-25T09:30:00Z'
+    ListingType:
+      type: string
+      enum: [SERVICE, READY_PRODUCT, MADE_TO_ORDER]
+    ListingSummary:
+      type: object
+      description: A listing card in lists. `priceFromMinor` is omitted for "by agreement".
+      required: [id, creator, type, title, category, currency, deliveryAvailable]
+      properties:
+        id:
+          type: string
+          format: uuid
+        creator:
+          $ref: '#/components/schemas/CreatorRef'
+        type:
+          $ref: '#/components/schemas/ListingType'
+        title:
+          type: string
+          maxLength: 120
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        priceFromMinor:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Starting price in minor units (kopecks); omitted means "by agreement".
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          example: RUB
+        city:
+          $ref: '#/components/schemas/City'
+        deliveryAvailable:
+          type: boolean
+        photo:
+          $ref: '#/components/schemas/ImageRef'
+    ListingSummaryPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ListingSummary'
+    Listing:
+      type: object
+      description: |
+        A listing. Fields specific to a type are present only for that type: `durationText` for `SERVICE`, `inStock` for `READY_PRODUCT`, `leadTimeDays` (1..365) for `MADE_TO_ORDER`. `priceFromMinor` is omitted for "by agreement".
+      required: [id, creator, type, title, description, category, currency, deliveryAvailable, attributes, photos]
+      properties:
+        id:
+          type: string
+          format: uuid
+        creator:
+          $ref: '#/components/schemas/CreatorRef'
+        type:
+          $ref: '#/components/schemas/ListingType'
+        title:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 4000
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        priceFromMinor:
+          type: integer
+          format: int64
+          minimum: 0
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        city:
+          $ref: '#/components/schemas/City'
+        deliveryAvailable:
+          type: boolean
+        durationText:
+          type: string
+          maxLength: 100
+        inStock:
+          type: boolean
+        leadTimeDays:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 365
+        attributes:
+          type: object
+          description: Free-form parameters of the listing (size, material, and so on).
+          maxProperties: 20
+          additionalProperties:
+            type: string
+            maxLength: 200
+        photos:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/ImageRef'
+      example:
+        id: 0192f1c6-3333-7000-8000-000000000003
+        creator:
+          id: 0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11
+          displayName: Anna Ceramics
+        type: READY_PRODUCT
+        title: Handmade mug
+        description: Stoneware mug, 300 ml, dishwasher safe.
+        category:
+          id: 0192f1c6-1111-7000-8000-000000000001
+          slug: ceramics
+          name: Ceramics
+        priceFromMinor: 250000
+        currency: RUB
+        deliveryAvailable: true
+        inStock: true
+        attributes:
+          volume: 300 ml
+        photos: []
+    PortfolioItem:
+      type: object
+      required: [id, category, image]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 120
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        subcategory:
+          $ref: '#/components/schemas/CategoryRef'
+        image:
+          $ref: '#/components/schemas/ImageRef'
+    PortfolioItemPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PortfolioItem'
+    GalleryItem:
+      type: object
+      description: A work in the feed. The size of the tile comes from `image.width` and `image.height`.
+      required: [id, creatorId, category, image]
+      properties:
+        id:
+          type: string
+          format: uuid
+        creatorId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 120
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        image:
+          $ref: '#/components/schemas/ImageRef'
+    GalleryItemPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/GalleryItem'
+    MediaUploadRequest:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: The image file (JPEG, PNG or WebP).
+    MediaUpload:
+      type: object
+      required: [id, image]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Media id; reference it from avatar, listing photo or portfolio item requests.
+        image:
+          $ref: '#/components/schemas/ImageRef'
+      example:
+        id: 0192f1c6-6666-7000-8000-000000000006
+        image:
+          width: 1600
+          height: 1200
+          variants:
+            - width: 320
+              url: https://media.example.org/m/0a0b0c/320.jpg
+            - width: 640
+              url: https://media.example.org/m/0a0b0c/640.jpg
+            - width: 1280
+              url: https://media.example.org/m/0a0b0c/1280.jpg
+    ShowcaseStatus:
+      type: string
+      description: Lifecycle of a showcase; changed only by moderation.
+      enum: [DRAFT, PENDING_REVIEW, PUBLISHED, REJECTED, WITHDRAWN]
+    SuspensionReason:
+      type: string
+      description: A showcase with any reason is hidden from the public, whatever its status.
+      enum: [ADMIN, ACCOUNT_SUSPENDED]
+    ReviewStatus:
+      type: string
+      description: |
+        Review state of a piece of content. Before the first publication all content waits (`PENDING`) and is approved together with the showcase; on a published showcase new images and listings wait for approval while the previously approved version stays public.
+      enum: [APPROVED, PENDING, REJECTED]
+    ListingStatus:
+      type: string
+      description: '`HIDDEN` listings are not public but stay editable.'
+      enum: [ACTIVE, HIDDEN]
+    MissingRequirement:
+      type: string
+      enum: [DISPLAY_NAME, CATEGORY, LISTING_MIN_1, PORTFOLIO_MIN_3]
+    ReviewedImage:
+      type: object
+      required: [image, reviewStatus]
+      properties:
+        image:
+          $ref: '#/components/schemas/ImageRef'
+        reviewStatus:
+          $ref: '#/components/schemas/ReviewStatus'
+        rejectionReason:
+          type: string
+          description: Present when `reviewStatus` is `REJECTED`.
+    CreatorProfileInput:
+      type: object
+      description: Every field is optional, so a draft can be saved step by step.
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+        bio:
+          type: string
+          maxLength: 2000
+        categoryId:
+          type: string
+          format: uuid
+        tags:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 30
+        cityId:
+          type: string
+          format: uuid
+        avatarMediaId:
+          type: string
+          format: uuid
+          description: Media id from `uploadMedia`; omitted keeps the current avatar.
+      example:
+        displayName: Anna Ceramics
+        bio: Wheel-thrown tableware, glazed by hand.
+        categoryId: 0192f1c6-1111-7000-8000-000000000001
+        tags: [mugs, handmade]
+    MyCreatorProfile:
+      type: object
+      description: The showcase as its creator sees it. Optional values are omitted when absent.
+      required: [id, status, suspensionReasons, tags, changedSinceReview, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/ShowcaseStatus'
+        suspensionReasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuspensionReason'
+        displayName:
+          type: string
+          maxLength: 80
+        bio:
+          type: string
+          maxLength: 2000
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        tags:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+        city:
+          $ref: '#/components/schemas/City'
+        avatar:
+          $ref: '#/components/schemas/ReviewedImage'
+        pendingAvatar:
+          $ref: '#/components/schemas/ReviewedImage'
+        rejectionReason:
+          type: string
+          description: Present while `status` is `REJECTED`.
+        changedSinceReview:
+          type: boolean
+          description: A published showcase whose text was edited after the last review (it is in the "changed" queue of moderation).
+        publishedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      example:
+        id: 0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11
+        status: DRAFT
+        suspensionReasons: []
+        displayName: Anna Ceramics
+        category:
+          id: 0192f1c6-1111-7000-8000-000000000001
+          slug: ceramics
+          name: Ceramics
+        tags: [mugs, handmade]
+        changedSinceReview: false
+        createdAt: '2026-10-26T12:00:00Z'
+    PublicationChecklist:
+      type: object
+      required: [ready, missing]
+      properties:
+        ready:
+          type: boolean
+          description: True when nothing is missing and the showcase can be submitted for review.
+        missing:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingRequirement'
+      example:
+        ready: false
+        missing: [LISTING_MIN_1, PORTFOLIO_MIN_3]
+    ListingInput:
+      type: object
+      required: [title, categoryId]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 4000
+        categoryId:
+          type: string
+          format: uuid
+        priceFromMinor:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Starting price in minor units (kopecks); omitted means "by agreement".
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          default: RUB
+        cityId:
+          type: string
+          format: uuid
+        deliveryAvailable:
+          type: boolean
+          default: false
+        durationText:
+          type: string
+          maxLength: 100
+          description: Only for `SERVICE`.
+        inStock:
+          type: boolean
+          description: Only for `READY_PRODUCT`.
+        leadTimeDays:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 365
+          description: Required for `MADE_TO_ORDER`, absent for other types.
+        attributes:
+          type: object
+          maxProperties: 20
+          additionalProperties:
+            type: string
+            maxLength: 200
+        status:
+          $ref: '#/components/schemas/ListingStatus'
+      example:
+        title: Handmade mug
+        description: Stoneware mug, 300 ml, dishwasher safe.
+        categoryId: 0192f1c6-1111-7000-8000-000000000001
+        priceFromMinor: 250000
+        deliveryAvailable: true
+        inStock: true
+        attributes:
+          volume: 300 ml
+    CreateListingRequest:
+      description: The fields of a listing plus its type, which never changes afterwards.
+      allOf:
+        - $ref: '#/components/schemas/ListingInput'
+        - type: object
+          required: [type]
+          properties:
+            type:
+              $ref: '#/components/schemas/ListingType'
+      example:
+        type: READY_PRODUCT
+        title: Handmade mug
+        description: Stoneware mug, 300 ml, dishwasher safe.
+        categoryId: 0192f1c6-1111-7000-8000-000000000001
+        priceFromMinor: 250000
+        deliveryAvailable: true
+        inStock: true
+        attributes:
+          volume: 300 ml
+    ListingPhoto:
+      type: object
+      required: [id, image, reviewStatus]
+      properties:
+        id:
+          type: string
+          format: uuid
+        image:
+          $ref: '#/components/schemas/ImageRef'
+        reviewStatus:
+          $ref: '#/components/schemas/ReviewStatus'
+        rejectionReason:
+          type: string
+    MyListing:
+      type: object
+      description: A listing as its creator sees it, with review states and every photo.
+      required: [id, type, title, description, category, currency, deliveryAvailable, attributes, status, reviewStatus, photos, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/ListingType'
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        priceFromMinor:
+          type: integer
+          format: int64
+          minimum: 0
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        city:
+          $ref: '#/components/schemas/City'
+        deliveryAvailable:
+          type: boolean
+        durationText:
+          type: string
+        inStock:
+          type: boolean
+        leadTimeDays:
+          type: integer
+          format: int32
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
+        status:
+          $ref: '#/components/schemas/ListingStatus'
+        reviewStatus:
+          $ref: '#/components/schemas/ReviewStatus'
+        rejectionReason:
+          type: string
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListingPhoto'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      example:
+        id: 0192f1c6-3333-7000-8000-000000000003
+        type: READY_PRODUCT
+        title: Handmade mug
+        description: Stoneware mug, 300 ml, dishwasher safe.
+        category:
+          id: 0192f1c6-1111-7000-8000-000000000001
+          slug: ceramics
+          name: Ceramics
+        priceFromMinor: 250000
+        currency: RUB
+        deliveryAvailable: true
+        inStock: true
+        attributes:
+          volume: 300 ml
+        status: ACTIVE
+        reviewStatus: PENDING
+        photos: []
+        createdAt: '2026-10-26T12:05:00Z'
+        updatedAt: '2026-10-26T12:05:00Z'
+    MyListingPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/MyListing'
+    AddListingPhotoRequest:
+      type: object
+      required: [mediaId]
+      properties:
+        mediaId:
+          type: string
+          format: uuid
+          description: Media id from `uploadMedia`.
+      example:
+        mediaId: 0192f1c6-6666-7000-8000-000000000006
+    PortfolioItemInput:
+      type: object
+      required: [categoryId]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        categoryId:
+          type: string
+          format: uuid
+        subcategoryId:
+          type: string
+          format: uuid
+          description: Must belong to `categoryId`.
+      example:
+        title: Blue glaze series
+        categoryId: 0192f1c6-1111-7000-8000-000000000001
+    CreatePortfolioItemRequest:
+      description: The fields of a work plus its image, which never changes afterwards.
+      allOf:
+        - $ref: '#/components/schemas/PortfolioItemInput'
+        - type: object
+          required: [mediaId]
+          properties:
+            mediaId:
+              type: string
+              format: uuid
+              description: Media id from `uploadMedia`.
+      example:
+        mediaId: 0192f1c6-6666-7000-8000-000000000006
+        title: Blue glaze series
+        categoryId: 0192f1c6-1111-7000-8000-000000000001
+    MyPortfolioItem:
+      type: object
+      required: [id, category, image, position, reviewStatus]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        subcategory:
+          $ref: '#/components/schemas/CategoryRef'
+        image:
+          $ref: '#/components/schemas/ImageRef'
+        position:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Zero-based place in the portfolio.
+        reviewStatus:
+          $ref: '#/components/schemas/ReviewStatus'
+        rejectionReason:
+          type: string
+      example:
+        id: 0192f1c6-4444-7000-8000-000000000004
+        title: Blue glaze series
+        category:
+          id: 0192f1c6-1111-7000-8000-000000000001
+          slug: ceramics
+          name: Ceramics
+        image:
+          width: 1600
+          height: 1200
+          variants:
+            - width: 640
+              url: https://media.example.org/m/070809/640.jpg
+        position: 0
+        reviewStatus: PENDING
+    MyPortfolioItemList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MyPortfolioItem'
+    ReorderPortfolioItemsRequest:
+      type: object
+      required: [itemIds]
+      properties:
+        itemIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+      example:
+        itemIds: [0192f1c6-4444-7000-8000-000000000004, 0192f1c6-4444-7000-8000-000000000005]
+    ModerationQueueState:
+      type: string
+      enum: [PENDING_REVIEW, NEW_CONTENT, CHANGED]
+      default: PENDING_REVIEW
+    ModerationQueueItem:
+      type: object
+      required: [creatorId, status, waitingSince, pendingContentCount, changedSinceReview]
+      properties:
+        creatorId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        status:
+          $ref: '#/components/schemas/ShowcaseStatus'
+        waitingSince:
+          type: string
+          format: date-time
+          description: Since when the oldest item of this entry waits; the 48-hour service level is counted from it.
+        pendingContentCount:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Number of avatars, photos, works and listings that wait for approval.
+        changedSinceReview:
+          type: boolean
+      example:
+        creatorId: 0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11
+        displayName: Anna Ceramics
+        status: PENDING_REVIEW
+        waitingSince: '2026-10-26T12:30:00Z'
+        pendingContentCount: 0
+        changedSinceReview: false
+    ModerationQueuePage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ModerationQueueItem'
+    AccountStatus:
+      type: string
+      enum: [ACTIVE, SUSPENDED, DELETED]
+    AdminUserRef:
+      type: object
+      required: [id, email, name, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+      example:
+        id: 0192f1c6-5555-7000-8000-000000000005
+        email: anna@example.org
+        name: Anna
+        status: ACTIVE
+    AdminCreatorView:
+      type: object
+      description: Everything a moderator needs to decide, including content that waits for approval.
+      required: [profile, owner, listings, portfolioItems]
+      properties:
+        profile:
+          $ref: '#/components/schemas/MyCreatorProfile'
+        owner:
+          $ref: '#/components/schemas/AdminUserRef'
+        listings:
+          type: array
+          items:
+            $ref: '#/components/schemas/MyListing'
+        portfolioItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/MyPortfolioItem'
+    ReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Shown to the creator for a rejection; kept in the audit log for every decision.
+      example:
+        reason: The photos do not show your own work.
+    ContentKind:
+      type: string
+      enum: [AVATAR, LISTING, LISTING_PHOTO, PORTFOLIO_ITEM]
+    ContentRef:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          $ref: '#/components/schemas/ContentKind'
+        id:
+          type: string
+          format: uuid
+          description: Id of the listing, photo or work; omitted for `AVATAR`.
+      example:
+        kind: PORTFOLIO_ITEM
+        id: 0192f1c6-4444-7000-8000-000000000004
+    ApproveContentRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          minItems: 1
+          description: What to approve; omit to approve everything that waits.
+          items:
+            $ref: '#/components/schemas/ContentRef'
+    RejectContentRequest:
+      type: object
+      required: [items, reason]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ContentRef'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      example:
+        items:
+          - kind: PORTFOLIO_ITEM
+            id: 0192f1c6-4444-7000-8000-000000000004
+        reason: The work is not yours.
+    InquiryMetricsBucket:
+      type: object
+      required: [periodStart, newConversations, conversationsWithCreatorReply, activeShowcases]
+      properties:
+        periodStart:
+          type: string
+          format: date
+        newConversations:
+          type: integer
+          format: int32
+          minimum: 0
+        conversationsWithCreatorReply:
+          type: integer
+          format: int32
+          minimum: 0
+        replyRate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: '`conversationsWithCreatorReply / newConversations`; omitted when there are no new conversations.'
+        activeShowcases:
+          type: integer
+          format: int32
+          minimum: 0
+    InquiryMetrics:
+      type: object
+      required: [groupBy, buckets]
+      properties:
+        groupBy:
+          type: string
+          enum: [month]
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/InquiryMetricsBucket'
+      example:
+        groupBy: month
+        buckets:
+          - periodStart: '2026-10-01'
+            newConversations: 10
+            conversationsWithCreatorReply: 6
+            replyRate: 0.6
+            activeShowcases: 12
+    ShowcaseMetricsBucket:
+      type: object
+      required: [periodStart, newlyPublished, activeShowcases]
+      properties:
+        periodStart:
+          type: string
+          format: date
+        newlyPublished:
+          type: integer
+          format: int32
+          minimum: 0
+        activeShowcases:
+          type: integer
+          format: int32
+          minimum: 0
+    ShowcaseStatusCount:
+      type: object
+      required: [status, count]
+      properties:
+        status:
+          $ref: '#/components/schemas/ShowcaseStatus'
+        count:
+          type: integer
+          format: int32
+          minimum: 0
+    ShowcaseMetrics:
+      type: object
+      required: [groupBy, buckets, byStatus]
+      properties:
+        groupBy:
+          type: string
+          enum: [month]
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShowcaseMetricsBucket'
+        byStatus:
+          type: array
+          description: Current number of showcases per status.
+          items:
+            $ref: '#/components/schemas/ShowcaseStatusCount'
+      example:
+        groupBy: month
+        buckets:
+          - periodStart: '2026-10-01'
+            newlyPublished: 4
+            activeShowcases: 12
+        byStatus:
+          - status: PUBLISHED
+            count: 12
+          - status: PENDING_REVIEW
+            count: 3
+    ConversationRole:
+      type: string
+      description: Which side of the conversation the caller is.
+      enum: [BUYER, CREATOR]
+    Participant:
+      type: object
+      description: The other side of a conversation. For a deleted account `deleted` is true and `name` is omitted; the client shows "Deleted user".
+      required: [deleted]
+      properties:
+        name:
+          type: string
+        avatar:
+          $ref: '#/components/schemas/ImageRef'
+        creatorId:
+          type: string
+          format: uuid
+          description: The showcase of the participant when the participant is the creator and the showcase is public.
+        deleted:
+          type: boolean
+    ListingRef:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+    Message:
+      type: object
+      required: [id, seq, mine, text, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        seq:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Position inside the conversation, 1, 2, 3 without gaps.
+        mine:
+          type: boolean
+          description: Whether the caller wrote it.
+        text:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        listing:
+          $ref: '#/components/schemas/ListingRef'
+        createdAt:
+          type: string
+          format: date-time
+      example:
+        id: 0192f1c6-7777-7000-8000-000000000007
+        seq: 1
+        mine: true
+        text: Hello! Is the blue mug still available?
+        createdAt: '2026-10-26T13:00:00Z'
+    Conversation:
+      type: object
+      required: [id, myRole, counterpart, lastSeq, unreadCount, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        myRole:
+          $ref: '#/components/schemas/ConversationRole'
+        counterpart:
+          $ref: '#/components/schemas/Participant'
+        originListing:
+          $ref: '#/components/schemas/ListingRef'
+        lastSeq:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Sequence number of the newest message; 0 when there is none.
+        unreadCount:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Messages of the other side the caller has not read.
+        lastMessage:
+          $ref: '#/components/schemas/Message'
+        createdAt:
+          type: string
+          format: date-time
+        lastMessageAt:
+          type: string
+          format: date-time
+      example:
+        id: 0192f1c6-8888-7000-8000-000000000008
+        myRole: BUYER
+        counterpart:
+          name: Anna Ceramics
+          creatorId: 0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11
+          deleted: false
+        lastSeq: 1
+        unreadCount: 0
+        lastMessage:
+          id: 0192f1c6-7777-7000-8000-000000000007
+          seq: 1
+          mine: true
+          text: Hello! Is the blue mug still available?
+          createdAt: '2026-10-26T13:00:00Z'
+        createdAt: '2026-10-26T13:00:00Z'
+        lastMessageAt: '2026-10-26T13:00:00Z'
+    ConversationPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Conversation'
+    StartConversationRequest:
+      type: object
+      required: [creatorId, text, clientMessageId]
+      properties:
+        creatorId:
+          type: string
+          format: uuid
+          description: The showcase to write to.
+        listingId:
+          type: string
+          format: uuid
+          description: A listing of that showcase, shown as a card with the message.
+        text:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        clientMessageId:
+          type: string
+          format: uuid
+          description: Generated by the client; a repeat with the same value never duplicates the message.
+      example:
+        creatorId: 0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11
+        text: Hello! Is the blue mug still available?
+        clientMessageId: 3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b
+    SendMessageRequest:
+      type: object
+      required: [text, clientMessageId]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        clientMessageId:
+          type: string
+          format: uuid
+      example:
+        text: Yes, it is in stock.
+        clientMessageId: 7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d
+    MessageList:
+      type: object
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        hasMore:
+          type: boolean
+          description: True when more messages after the last one returned wait; ask again with the new `after`.
+      example:
+        items:
+          - id: 0192f1c6-7777-7000-8000-000000000007
+            seq: 1
+            mine: false
+            text: Hello! Is the blue mug still available?
+            createdAt: '2026-10-26T13:00:00Z'
+        hasMore: false
+    InboxSummary:
+      type: object
+      required: [unreadConversations, unreadMessages]
+      properties:
+        unreadConversations:
+          type: integer
+          format: int32
+          minimum: 0
+        unreadMessages:
+          type: integer
+          format: int32
+          minimum: 0
+      example:
+        unreadConversations: 1
+        unreadMessages: 2
