@@ -63,7 +63,18 @@ function ReviewBody({ view, controls }: { view: AdminCreatorView; controls: Cont
           {profile.avatar ? (
             <figure className="flex flex-col items-center gap-2 text-sm">
               <EggImage image={profile.avatar.image} alt="" sizes="96px" className="size-24 rounded-full object-cover" />
-              <figcaption>Опубликованный аватар</figcaption>
+              <figcaption className="flex flex-col items-center gap-2">
+                <span>{profile.avatar.reviewStatus === "APPROVED" ? "Опубликованный аватар" : "Аватар"}</span>
+                <ReviewBadge status={profile.avatar.reviewStatus} />
+                {profile.pendingAvatar === undefined ? (
+                  <Decision
+                    status={profile.avatar.reviewStatus}
+                    busy={busy}
+                    onApprove={() => approveContent({ kind: "AVATAR" })}
+                    onReject={() => rejectContent({ kind: "AVATAR" })}
+                  />
+                ) : null}
+              </figcaption>
             </figure>
           ) : null}
           {profile.pendingAvatar ? (

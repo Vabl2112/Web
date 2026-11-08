@@ -15,7 +15,7 @@ import { refreshCabinet, useMyProfile } from "@/lib/cabinet-hooks"
 /** For a person who has no showcase yet: one button creates an empty draft (it needs a confirmed e-mail) and leads to the profile. */
 export function BecomeCreator() {
   const router = useRouter()
-  const { account } = useSession()
+  const { account, refresh } = useSession()
   const { change } = useMyProfile()
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -28,6 +28,8 @@ export function BecomeCreator() {
       const created = await unwrap(api.POST("/v1/me/creator-profile", { body: {} }))
       await change(created, { revalidate: false })
       await refreshCabinet()
+      // The account has the role CREATOR now: the header (the link of the messages, the menu) must see it without a reload.
+      await refresh()
       router.push("/cabinet/profile")
     } catch (error) {
       setFailure(errorTextOf(error))
