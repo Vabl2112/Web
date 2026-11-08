@@ -39,5 +39,5 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
-      # warns only until P5.5, then it fails the run (see AGENTS.md)
+      # fails on any trace of the old mock or of an out-of-scope feature (AC-26, AC-30, AC-31, AC-40; see AGENTS.md)
       - run: pnpm check:no-mocks

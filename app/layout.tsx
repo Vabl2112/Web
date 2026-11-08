@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
 import { ApiNotices } from '@/components/api-notices'
 import './globals.css'
 
@@ -8,9 +7,8 @@ const geist = Geist({ subsets: ["latin"] });
 const geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'EGG - Тату-мастера',
-  description: 'Найдите лучших тату-мастеров в вашем городе',
-  generator: 'v0.app',
+  title: 'EGG — витрины творческих людей',
+  description: 'Находите создателей, смотрите их работы и пишите им напрямую.',
   icons: {
     icon: [
       {
@@ -30,7 +28,14 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+/** Web analytics belong to the demo on Vercel only (OD-24): the build for the VM never loads the package. */
+async function analytics() {
+  if (process.env.VERCEL !== '1') return null
+  const { Analytics } = await import('@vercel/analytics/next')
+  return <Analytics />
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
@@ -40,7 +45,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         {children}
         <ApiNotices />
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        {await analytics()}
       </body>
     </html>
   )

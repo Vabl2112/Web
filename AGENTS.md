@@ -14,8 +14,9 @@ That is probably why `typescript.ignoreBuildErrors` used to be on. Use a checkou
 ## Commands
 - `pnpm install --frozen-lockfile`
 - `pnpm typecheck` (`tsc --noEmit`), `pnpm lint` (ESLint, no warnings allowed), `pnpm test` (Vitest), `pnpm build`
-- `pnpm check:no-mocks`: lists what the v1 UI must lose (old mock data, out-of-scope features; AC-30, AC-31). It only warns until
-  P5.5; `--strict` or `EGG_NO_MOCKS_STRICT=1` makes findings fail.
+- `pnpm check:no-mocks`: fails on any trace of the old mock data and out-of-scope features (AC-30, AC-31), on a long-lived connection
+  (AC-26: the client polls) and on a `proxy.ts` that does more than look for the marker cookie (AC-40 (а)). `--warn` or
+  `EGG_NO_MOCKS_WARN=1` only lists the findings. Its own rules are tested in `scripts/check-no-mocks.test.mjs`.
 - Gates run in CI in this order: install, api:check, typecheck, lint, test, build, check:no-mocks.
 
 ## The API contract
@@ -49,5 +50,11 @@ copy (`contract/SHA256SUMS`). `lib/api/schema.d.ts` is generated from the copy a
 - Pin new dependencies exactly; take releases that are at least two weeks old.
 
 ## Not here yet
-Publishing the backend image to ghcr.io and the bot PR `api:sync` (with the staging deploy, P9.1); Prism and `dev:mock` (P5.1);
-Playwright and e2e (P5.3a); Testing Library (P5); `Dockerfile` and deploy workflows (P9.1).
+Publishing the backend image to ghcr.io and the bot PR `api:sync` (with the staging deploy, P9.1); `Dockerfile` and deploy workflows
+(P9.1); Playwright and e2e (`auth`, `catalog`, `cabinet`, `messaging`, `admin` specs of the plan: they need a browser download and the
+whole backend stack with Mailpit in CI); the choice of a city and the data of cities; the spike S5 of the upload through the Next proxy
+(`docs/spikes.md`). A Prism mock and Testing Library are not used: the real backend exists, and the logic that has rules is kept out of
+React so that Vitest can reach it.
+
+The build for Vercel (the demo) sets `VERCEL=1`, and only then the layout loads `@vercel/analytics`; `EGG_API_ORIGIN` and
+`EGG_MEDIA_ORIGIN` are set there at build time (the first for the rewrite of `/api/v1/`, the second for the `img-src` of the CSP).
