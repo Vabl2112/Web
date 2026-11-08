@@ -62,6 +62,7 @@ export function useMessages(conversationId: string) {
 
   useEffect(() => {
     let cancelled = false
+    let missing = false
     lastSeq.current = 0
 
     const poller: Poller = new Poller({
@@ -83,6 +84,7 @@ export function useMessages(conversationId: string) {
         })
         if (cancelled) return
         if (response.status === 404) {
+          missing = true
           poller.stop()
           return setStatus("missing")
         }
@@ -103,7 +105,7 @@ export function useMessages(conversationId: string) {
 
     fetchNew()
       .catch(() => !cancelled && setStatus("failed"))
-      .finally(() => !cancelled && poller.start())
+      .finally(() => !cancelled && !missing && poller.start())
 
     return () => {
       cancelled = true
