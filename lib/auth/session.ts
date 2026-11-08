@@ -38,6 +38,8 @@ export function useSession() {
     isCreator: account?.roles.includes("CREATOR") ?? false,
     isAdmin: account?.roles.includes("ADMIN") ?? false,
     refresh: () => mutate(),
+    /** Right after a successful login: the account is known from its answer, no second call is needed. */
+    signedIn: (signed: Account) => mutate(signed, { revalidate: false }),
     signOut,
   }
 }

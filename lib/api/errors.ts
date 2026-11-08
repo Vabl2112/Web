@@ -38,6 +38,7 @@ const MESSAGES: Record<string, string> = {
   EMAIL_NOT_VERIFIED: "Подтвердите адрес почты.",
   EMAIL_ALREADY_VERIFIED: "Адрес уже подтверждён.",
   TOKEN_INVALID: "Ссылка недействительна или устарела.",
+  UNSUBSCRIBE_TOKEN_INVALID: "Ссылка для отписки недействительна.",
   RATE_LIMITED: "Слишком много попыток. Попробуйте чуть позже.",
   CLIENT_UPGRADE_REQUIRED: "Обновите страницу.",
   SERVICE_BUSY: "Сервис занят. Попробуйте ещё раз через минуту.",
@@ -76,11 +77,29 @@ export function messageOf(error: ApiError): string {
   return MESSAGES[error.code] ?? STATUS_MESSAGES[error.status] ?? GENERAL_MESSAGE
 }
 
-/** The per-field errors of a `VALIDATION_FAILED` answer by the path of the field, for the forms. */
+/** The text for a person for any failure of a call: an `ApiError` by its code, anything else (the network, a bug) in general words. */
+export function errorTextOf(error: unknown): string {
+  return error instanceof ApiError ? messageOf(error) : GENERAL_MESSAGE
+}
+
+// What a person is told for the codes of a single field (`errors[].code` of a `VALIDATION_FAILED` answer).
+const FIELD_MESSAGES: Record<string, string> = {
+  REQUIRED: "Обязательное поле.",
+  BLANK: "Поле не может быть пустым.",
+  INVALID_FORMAT: "Неверный формат.",
+  INVALID_SIZE: "Недопустимая длина.",
+  OUT_OF_RANGE: "Значение вне допустимых пределов.",
+  INVALID_CHARACTERS: "В тексте есть недопустимые символы.",
+  COMMON_PASSWORD: "Этот пароль слишком распространён. Придумайте другой.",
+}
+
+const GENERAL_FIELD_MESSAGE = "Недопустимое значение."
+
+/** The per-field errors of a `VALIDATION_FAILED` answer by the path of the field, for the forms: by code, never the text of the server. */
 export function fieldErrorsOf(error: ApiError): Record<string, string> {
   const result: Record<string, string> = {}
   for (const item of error.problem?.errors ?? []) {
-    result[item.field] = item.message ?? item.code
+    result[item.field] = FIELD_MESSAGES[item.code] ?? GENERAL_FIELD_MESSAGE
   }
   return result
 }

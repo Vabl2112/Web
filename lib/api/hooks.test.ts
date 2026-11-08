@@ -1,11 +1,23 @@
 import { describe, expect, it } from "vitest"
 import { ApiError } from "./errors"
-import { unwrap } from "./hooks"
+import { expectOk, unwrap } from "./hooks"
 
 const answer = (status: number, body: unknown) => ({
   data: status < 400 ? body : undefined,
   error: status >= 400 ? body : undefined,
   response: new Response(null, { status }),
+})
+
+describe("expectOk", () => {
+  it("is quiet for an answer without a body", async () => {
+    await expect(expectOk(Promise.resolve(answer(204, undefined)))).resolves.toBeUndefined()
+  })
+
+  it("throws an ApiError with the code of the problem document", async () => {
+    const body = { title: "t", status: 410, code: "TOKEN_INVALID" }
+
+    await expect(expectOk(Promise.resolve(answer(410, body)))).rejects.toMatchObject({ status: 410, code: "TOKEN_INVALID" })
+  })
 })
 
 describe("unwrap", () => {
