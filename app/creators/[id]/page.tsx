@@ -4,6 +4,7 @@ import { CreatorProfileHeader } from "@/components/catalog/creator-profile-heade
 import { PortfolioList } from "@/components/catalog/gallery-list"
 import { ListingList } from "@/components/catalog/listing-list"
 import { Header } from "@/components/header"
+import { WriteButton } from "@/components/messaging/write-button"
 import { loadOrNotFound, serverApi } from "@/lib/api/server"
 
 type Props = { params: Promise<{ id: string }> }
@@ -30,6 +31,7 @@ export default async function CreatorPage({ params }: Props) {
       <Header />
       <main className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-8">
         <CreatorProfileHeader creator={creator} />
+        <WriteButton creatorId={id} />
         {portfolio.items.length > 0 ? (
           <section aria-labelledby="portfolio" className="flex flex-col gap-4">
             <h2 id="portfolio" className="text-2xl font-semibold">

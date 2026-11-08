@@ -3,6 +3,7 @@ import Link from "next/link"
 import type { Metadata } from "next"
 import { EggImage } from "@/components/egg-image"
 import { Header } from "@/components/header"
+import { WriteButton } from "@/components/messaging/write-button"
 import { Badge } from "@/components/ui/badge"
 import { loadOrNotFound, serverApi } from "@/lib/api/server"
 import { LISTING_TYPE_LABELS, type Listing } from "@/lib/catalog"
@@ -56,6 +57,7 @@ export default async function ListingPage({ params }: Props) {
             </Link>
           </p>
           <p className="text-2xl font-semibold">{formatPriceFrom(listing.priceFromMinor, listing.currency)}</p>
+          <WriteButton creatorId={listing.creator.id} listing={{ id: listing.id, title: listing.title }} />
           {fact ? <p>{fact}</p> : null}
           {place ? <p className="text-sm text-muted-foreground">{place}</p> : null}
           {listing.description ? <p className="leading-relaxed whitespace-pre-line">{listing.description}</p> : null}
