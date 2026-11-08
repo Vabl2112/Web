@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { ApiError, fieldErrorsOf, isProblemDetail, messageOf, toApiError } from "./errors"
+import { ApiError, errorTextOf, fieldErrorsOf, isProblemDetail, messageOf, toApiError } from "./errors"
 
 const problem = (overrides: Record<string, unknown> = {}) => ({
   title: "Server title that a person must never see",
@@ -57,21 +57,33 @@ describe("messageOf", () => {
   })
 })
 
+describe("errorTextOf", () => {
+  it("speaks by the code for an ApiError and in general words for anything else", () => {
+    expect(errorTextOf(toApiError(409, problem({ status: 409, code: "EMAIL_TAKEN" })))).toBe("Этот адрес уже зарегистрирован.")
+    expect(errorTextOf(new TypeError("Failed to fetch"))).toBe("Что-то пошло не так. Попробуйте ещё раз.")
+  })
+})
+
 describe("fieldErrorsOf", () => {
-  it("maps the fields of a validation answer, the message first and the code when there is none", () => {
+  it("maps the fields of a validation answer by their codes, never by the text of the server", () => {
     const error = toApiError(
       400,
       problem({
         status: 400,
         code: "VALIDATION_FAILED",
         errors: [
-          { field: "email", code: "INVALID_FORMAT", message: "Неверный адрес" },
-          { field: "password", code: "TOO_SHORT" },
+          { field: "email", code: "INVALID_FORMAT", message: "Server text" },
+          { field: "password", code: "COMMON_PASSWORD" },
+          { field: "name", code: "SOMETHING_NEW" },
         ],
       }),
     )
 
-    expect(fieldErrorsOf(error)).toEqual({ email: "Неверный адрес", password: "TOO_SHORT" })
+    expect(fieldErrorsOf(error)).toEqual({
+      email: "Неверный формат.",
+      password: "Этот пароль слишком распространён. Придумайте другой.",
+      name: "Недопустимое значение.",
+    })
   })
 
   it("is empty when the answer has no field errors", () => {

@@ -44,6 +44,11 @@ describe("reactionTo", () => {
     }
   })
 
+  it("leaves 401 of the login and the logout to the form: it is a wrong password, or no session to end", () => {
+    expect(reactionTo(401, { method: "POST", path: "/v1/auth/login" }, "/login")).toBe("none")
+    expect(reactionTo(401, { method: "POST", path: "/v1/auth/logout" }, "/cabinet")).toBe("none")
+  })
+
   it("treats a POST to /v1/me as an ordinary call", () => {
     expect(reactionTo(401, { method: "POST", path: "/v1/me" }, "/masters")).toBe("offer-login")
   })
@@ -57,6 +62,8 @@ describe("returnToOf", () => {
   it("never returns the person to another site", () => {
     expect(returnToOf("//evil.example", "")).toBe("/")
     expect(returnToOf("https://evil.example", "")).toBe("/")
+    expect(returnToOf("/\\evil.example", "")).toBe("/")
+    expect(returnToOf("", "")).toBe("/")
   })
 })
 
@@ -109,7 +116,7 @@ describe("createApiClient", () => {
   it("sends the person from a page with a session to the login page, with the way back", async () => {
     const { client, calls } = setup(() => problem(401, "UNAUTHENTICATED"), { pathname: "/cabinet/listings", search: "?page=2" })
 
-    await client.POST("/v1/auth/logout")
+    await client.POST("/v1/auth/resend-verification")
 
     expect(calls).toEqual(["login:/cabinet/listings?page=2"])
   })
@@ -117,8 +124,17 @@ describe("createApiClient", () => {
   it("only offers to sign in on a public page", async () => {
     const { client, calls } = setup(() => problem(401, "UNAUTHENTICATED"))
 
-    await client.POST("/v1/auth/logout")
+    await client.POST("/v1/auth/resend-verification")
 
     expect(calls).toEqual(["offer-login"])
+  })
+
+  it("does not react to a wrong password: the form shows it", async () => {
+    const { client, calls } = setup(() => problem(401, "INVALID_CREDENTIALS"))
+
+    const { response } = await client.POST("/v1/auth/login", { body: { email: "anna@example.org", password: "wrong" } })
+
+    expect(response.status).toBe(401)
+    expect(calls).toEqual([])
   })
 })

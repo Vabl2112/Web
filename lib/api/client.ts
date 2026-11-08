@@ -37,6 +37,9 @@ export function isProtectedPage(pathname: string): boolean {
 export function reactionTo(status: number, request: { method: string; path: string }, pathname: string): Reaction {
   if (status === 426) return "upgrade"
   if (status !== 401) return "none"
+  // A `401` of the login is the answer "wrong e-mail or password" and one of the logout says there is no session to end: the forms
+  // show those themselves, the page must not offer to sign in or move away.
+  if (request.path === "/v1/auth/login" || request.path === "/v1/auth/logout") return "none"
   if (request.method.toUpperCase() === "GET" && request.path === "/v1/me") return "guest"
   return isProtectedPage(pathname) ? "login" : "offer-login"
 }
@@ -44,7 +47,8 @@ export function reactionTo(status: number, request: { method: string; path: stri
 /** The address the person comes back to after signing in: a path of this site, never another site. */
 export function returnToOf(pathname: string, search = ""): string {
   const value = `${pathname}${search}`
-  return value.startsWith("/") && !value.startsWith("//") ? value : "/"
+  // `//host` and `/\host` both mean another site to a browser.
+  return value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : "/"
 }
 
 export interface ClientHooks {

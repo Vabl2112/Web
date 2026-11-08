@@ -16,6 +16,12 @@ export async function unwrap<T>(call: Promise<Answer<T>>): Promise<T> {
   return data as T
 }
 
+/** Like `unwrap` for an answer that has no body (`202`, `204`): throws an `ApiError` when the call failed. */
+export async function expectOk(call: Promise<Answer<unknown>>): Promise<void> {
+  const { error, response } = await call
+  if (!response.ok) throw toApiError(response.status, error)
+}
+
 /** A read by SWR with a fetcher of your own: `key` says what is read (`null` reads nothing). */
 export function useRead<T>(key: Key, fetcher: () => Promise<T>, config?: SWRConfiguration<T, ApiError>) {
   return useSWR<T, ApiError>(key, fetcher, config)
