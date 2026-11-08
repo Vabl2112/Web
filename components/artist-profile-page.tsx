@@ -5,8 +5,6 @@ import { Header } from "@/components/header"
 import { ProfileCard } from "@/components/profile-card"
 import { ServicesCard } from "@/components/services-card"
 import { PortfolioMasonry } from "@/components/portfolio-masonry"
-import { ReviewsCard } from "@/components/reviews-card"
-import { CalculatorCard } from "@/components/calculator-card"
 import { DynamicTabs, type TabItem } from "@/components/dynamic-tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { ArtistProfile } from "@/lib/types"
@@ -90,22 +88,12 @@ export function ArtistProfilePage() {
                 id: "services",
                 label: "Услуги и Товары",
                 content: data ? <ServicesCard services={data.services} /> : null
-              },
-              {
-                id: "calculator",
-                label: "Калькулятор",
-                content: <CalculatorCard artistId={data?.artist.id} />
-              },
-              {
-                id: "reviews",
-                label: "Отзывы",
-                content: data ? <ReviewsCard reviews={data.reviews} /> : null
               }
             ]
             return (
               <DynamicTabs 
                 tabs={tabs} 
-                defaultEnabled={["portfolio", "services", "calculator", "reviews"]} 
+                defaultEnabled={["portfolio", "services"]}
               />
             )
           })()}

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { ApiNotices } from '@/components/api-notices'
 import './globals.css'
 
 const geist = Geist({ subsets: ["latin"] });
@@ -38,6 +39,7 @@ export default function RootLayout({
     <html lang="ru" className={`${geist.className} ${geistMono.className}`}>
       <body className="font-sans antialiased">
         {children}
+        <ApiNotices />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
