@@ -27,6 +27,15 @@ const nextConfig = {
   async rewrites() {
     return apiOrigin ? [{ source: "/api/v1/:path*", destination: `${apiOrigin}/v1/:path*` }] : []
   },
+  // The routes of the first mock of the site lead to their successors, so old links keep working.
+  async redirects() {
+    return [
+      { source: "/masters", destination: "/creators", permanent: true },
+      { source: "/artist/:id", destination: "/creators/:id", permanent: true },
+      { source: "/services", destination: "/listings?type=SERVICE", permanent: true },
+      { source: "/products", destination: "/listings?type=READY_PRODUCT", permanent: true },
+    ]
+  },
   async headers() {
     return [{ source: "/:path*", headers: [{ key: "Content-Security-Policy", value: policy }] }]
   },
