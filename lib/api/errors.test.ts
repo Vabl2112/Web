@@ -40,6 +40,12 @@ describe("messageOf", () => {
     expect(messageOf(toApiError(401, problem({ status: 401, code: "INVALID_CREDENTIALS" })))).toBe("Неверная почта или пароль.")
   })
 
+  it("tells that a deleted counterpart cannot be written to", () => {
+    expect(messageOf(toApiError(409, problem({ status: 409, code: "COUNTERPART_DELETED" })))).toBe(
+      "Собеседник удалил аккаунт, писать ему больше нельзя.",
+    )
+  })
+
   it("never shows the title or the detail of the server", () => {
     const text = messageOf(toApiError(422, problem()))
 

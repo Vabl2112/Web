@@ -831,7 +831,7 @@ export interface paths {
         put?: never;
         /**
          * Suspend an account
-         * @description Signing in answers `403 ACCOUNT_SUSPENDED` and every session of the user answers `401` from the next request. The showcase of the user gets the suspension reason `ACCOUNT_SUSPENDED`. Written to the audit log.
+         * @description Signing in answers `403 ACCOUNT_SUSPENDED` and every session of the user answers `401` from the next request. The showcase of the user gets the suspension reason `ACCOUNT_SUSPENDED`. Written to the audit log. An administrator cannot be suspended, the caller included (`422 CANNOT_SUSPEND_ADMIN`).
          */
         post: operations["suspendUser"];
         delete?: never;
@@ -917,7 +917,7 @@ export interface paths {
          * Write to a creator
          * @description One conversation per buyer-creator pair (OD-11). The first call creates it and answers `201`; a later call with the same creator adds the message to the existing conversation and answers `200`. `listingId` shows that listing as a card with the message.
          *     Repeating a call with the same `clientMessageId` never duplicates the message or the conversation; the stored result is returned with `200`.
-         *     Writing to your own showcase answers `422 CANNOT_MESSAGE_SELF`; an unknown or unpublished showcase answers `404`; an unconfirmed e-mail `403 EMAIL_NOT_VERIFIED`. At most 10 new conversations per hour and 30 messages per minute (`429`).
+         *     Writing to your own showcase answers `422 CANNOT_MESSAGE_SELF`; an unknown or unpublished showcase answers `404`; an owner who has deleted the account `409 COUNTERPART_DELETED`; an unconfirmed e-mail `403 EMAIL_NOT_VERIFIED`. At most 10 new conversations per hour and 30 messages per minute (`429`).
          *     While the feature flag is off every messaging operation answers `404` to everyone.
          */
         post: operations["startConversation"];
@@ -956,13 +956,13 @@ export interface paths {
         };
         /**
          * Get messages after a sequence number
-         * @description Polling endpoint. Returns the messages with `seq` greater than `after`, ascending; `seq` counts 1, 2, 3 inside a conversation without gaps. Without new messages, or when `If-None-Match` matches, the answer is an immediate `304`; the endpoint never waits.
+         * @description Polling endpoint. Returns the messages with `seq` greater than `after`, ascending; `seq` counts 1, 2, 3 inside a conversation without gaps. Without new messages, or when `If-None-Match` matches, the answer is an immediate `304`; the endpoint never waits. At most 120 calls per minute and user (`429`).
          */
         get: operations["getMessages"];
         put?: never;
         /**
          * Send a message
-         * @description The text is 1..4000 characters after trimming. Repeating a call with the same `clientMessageId` returns the stored message with `200` instead of creating a second one. At most 30 messages per minute (`429`).
+         * @description The text is 1..4000 characters after trimming. Repeating a call with the same `clientMessageId` returns the stored message with `200` instead of creating a second one. When the other side has deleted the account the answer is `409 COUNTERPART_DELETED` (the history stays readable; `counterpart.deleted` tells the client in advance). At most 30 messages per minute (`429`).
          */
         post: operations["sendMessage"];
         delete?: never;
@@ -2230,6 +2230,22 @@ export interface components {
                  *       "title": "Not found",
                  *       "status": 404,
                  *       "code": "NOT_FOUND"
+                 *     }
+                 */
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description The other side of the conversation has deleted the account, so nothing can be written to it any more. */
+        CounterpartDeleted: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "title": "The other side has deleted the account",
+                 *       "status": 409,
+                 *       "code": "COUNTERPART_DELETED"
                  *     }
                  */
                 "application/problem+json": components["schemas"]["ProblemDetail"];
@@ -4074,6 +4090,22 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            /** @description The account is an administrator; an administrator cannot be suspended, the caller included. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "title": "An administrator cannot be suspended",
+                     *       "status": 422,
+                     *       "code": "CANNOT_SUSPEND_ADMIN"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     unsuspendUser: {
@@ -4246,6 +4278,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["MessagingNotFound"];
+            409: components["responses"]["CounterpartDeleted"];
             /** @description The buyer and the creator are the same person. */
             422: {
                 headers: {
@@ -4293,7 +4326,7 @@ export interface operations {
     getMessages: {
         parameters: {
             query?: {
-                /** @description Last sequence number the client already has. */
+                /** @description Last sequence number the client already has; omitted means 0, from the first message. */
                 after?: number;
                 /** @description Page size. */
                 limit?: number;
@@ -4321,6 +4354,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["MessagingNotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     sendMessage: {
@@ -4364,6 +4398,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["MessagingNotFound"];
+            409: components["responses"]["CounterpartDeleted"];
             429: components["responses"]["TooManyRequests"];
         };
     };

@@ -54,6 +54,7 @@ const MESSAGES: Record<string, string> = {
   LISTING_PHOTO_LIMIT: "У позиции уже максимум фотографий.",
   PORTFOLIO_ORDER_MISMATCH: "Порядок не совпал с вашими работами. Обновите страницу.",
   CANNOT_MESSAGE_SELF: "Нельзя написать самому себе.",
+  COUNTERPART_DELETED: "Собеседник удалил аккаунт, писать ему больше нельзя.",
   CANNOT_SUSPEND_ADMIN: "Администратора нельзя приостановить.",
   IMAGE_TOO_LARGE: "Изображение слишком большое.",
 }
