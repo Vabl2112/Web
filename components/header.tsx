@@ -26,9 +26,9 @@ const navLinks = [
 ]
 
 /** The links of the account menu: the cabinet for everybody, the administration only for an administrator (the API checks it again). */
-function accountLinks(isAdmin: boolean, messaging: boolean) {
+function accountLinks(isAdmin: boolean, isCreator: boolean, messaging: boolean) {
   return [
-    { href: "/cabinet", label: "Кабинет" },
+    { href: "/cabinet", label: isCreator ? "Кабинет" : "Стать создателем" },
     ...(messaging ? [{ href: "/messages", label: "Сообщения" }] : []),
     ...(isAdmin ? [{ href: "/admin/moderation", label: "Модерация" }, { href: "/admin/metrics", label: "Метрики" }] : []),
   ]
@@ -50,9 +50,9 @@ function GuestButtons() {
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const router = useRouter()
-  const { account, isLoading, isAdmin, signOut } = useSession()
+  const { account, isLoading, isAdmin, isCreator, signOut } = useSession()
   const { messaging } = useFeatures()
-  const links = accountLinks(isAdmin, messaging)
+  const links = accountLinks(isAdmin, isCreator, messaging)
 
   const leave = async () => {
     await signOut()
