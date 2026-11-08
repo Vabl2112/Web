@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form"
 import { FormAlert } from "@/components/auth/form-alert"
 import { TextField } from "@/components/auth/text-field"
 import { CreatorGate } from "@/components/cabinet/creator-gate"
+import { CityField } from "@/components/cabinet/city-field"
 import { SelectField, TextAreaField } from "@/components/cabinet/fields"
 import { UploadButton } from "@/components/cabinet/upload-button"
 import { EggImage } from "@/components/egg-image"
@@ -14,6 +15,7 @@ import { expectOk, unwrap } from "@/lib/api/answers"
 import { api } from "@/lib/api/client"
 import { ApiError, errorTextOf } from "@/lib/api/errors"
 import type { MyCreatorProfile } from "@/lib/cabinet"
+import type { City } from "@/lib/catalog"
 import { type ProfileValues, profileRequest, profileSchema, profileValuesOf } from "@/lib/cabinet-schemas"
 import { refreshCabinet, useCategories, useMyProfile } from "@/lib/cabinet-hooks"
 import { applyFieldErrors } from "@/lib/form-errors"
@@ -52,6 +54,7 @@ function ProfileFormBody({ profile }: { profile: MyCreatorProfile }) {
   const [note, setNote] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [city, setCity] = useState<City | null>(profile.city ?? null)
   const {
     register,
     handleSubmit,
@@ -61,7 +64,7 @@ function ProfileFormBody({ profile }: { profile: MyCreatorProfile }) {
   } = useForm<ProfileValues>({ resolver: zodResolver(profileSchema), defaultValues: profileValuesOf(profile) })
 
   const saveWith = async (values: ProfileValues, avatarMediaId?: string) => {
-    const saved = await unwrap(api.PUT("/v1/me/creator-profile", { body: { ...profileRequest(values), ...(avatarMediaId ? { avatarMediaId } : {}) } }))
+    const saved = await unwrap(api.PUT("/v1/me/creator-profile", { body: { ...profileRequest(values, city?.id), ...(avatarMediaId ? { avatarMediaId } : {}) } }))
     await change(saved, { revalidate: false })
     await refreshCabinet()
   }
@@ -117,6 +120,7 @@ function ProfileFormBody({ profile }: { profile: MyCreatorProfile }) {
         />
         <TextAreaField label="О себе" rows={6} error={errors.bio?.message} {...register("bio")} />
         <TextField label="Теги" hint="Через запятую, не больше 10: например, «кружки, ручная работа»." error={errors.tags?.message} {...register("tags")} />
+        <CityField value={city} onChange={setCity} />
         <Button type="submit" className="w-fit" disabled={isSubmitting}>
           {isSubmitting ? "Сохраняем…" : "Сохранить"}
         </Button>

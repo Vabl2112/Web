@@ -3,6 +3,7 @@ import { catalogHref, parseCatalogQuery } from "./catalog"
 
 const CATEGORY = "0192f1c6-1111-7000-8000-000000000001"
 const SUBCATEGORY = "0192f1c6-1111-7000-8000-000000000011"
+const CITY = "0192f1c6-2222-7000-8000-000000000002"
 
 describe("parseCatalogQuery", () => {
   it("reads the filters of the address", () => {
@@ -16,6 +17,12 @@ describe("parseCatalogQuery", () => {
 
   it("drops a value that is not valid, so the API never gets it", () => {
     expect(parseCatalogQuery({ categoryId: "not-an-id", type: "TATTOO", q: "   " })).toEqual({})
+  })
+
+  it("reads a city, and its name only together with a valid id", () => {
+    expect(parseCatalogQuery({ cityId: CITY, cityName: " Казань " })).toEqual({ cityId: CITY, cityName: "Казань" })
+    expect(parseCatalogQuery({ cityId: "nonsense", cityName: "Казань" })).toEqual({})
+    expect(parseCatalogQuery({ cityName: "Казань" })).toEqual({})
   })
 
   it("keeps a subcategory only together with its category", () => {
@@ -37,6 +44,12 @@ describe("catalogHref", () => {
   it("puts the filters in a fixed order, escaped", () => {
     expect(catalogHref("/listings", { q: "чашка ручной работы", type: "READY_PRODUCT", categoryId: CATEGORY })).toBe(
       `/listings?categoryId=${CATEGORY}&type=READY_PRODUCT&q=%D1%87%D0%B0%D1%88%D0%BA%D0%B0+%D1%80%D1%83%D1%87%D0%BD%D0%BE%D0%B9+%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%8B`,
+    )
+  })
+
+  it("keeps the city in the address with its name", () => {
+    expect(catalogHref("/creators", { cityId: CITY, cityName: "Казань" })).toBe(
+      `/creators?cityId=${CITY}&cityName=%D0%9A%D0%B0%D0%B7%D0%B0%D0%BD%D1%8C`,
     )
   })
 

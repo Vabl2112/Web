@@ -7,6 +7,7 @@ import { FormAlert } from "@/components/auth/form-alert"
 import { TextField } from "@/components/auth/text-field"
 import { ReviewBadge } from "@/components/cabinet/badges"
 import { CreatorGate } from "@/components/cabinet/creator-gate"
+import { CityField } from "@/components/cabinet/city-field"
 import { CheckboxField, SelectField, TextAreaField } from "@/components/cabinet/fields"
 import { UploadButton } from "@/components/cabinet/upload-button"
 import { EggImage } from "@/components/egg-image"
@@ -19,7 +20,7 @@ import { ApiError, errorTextOf } from "@/lib/api/errors"
 import type { MyListing } from "@/lib/cabinet"
 import { EMPTY_LISTING, type ListingValues, listingRequest, listingSchema, listingValuesOf } from "@/lib/cabinet-schemas"
 import { refreshCabinet, useCategories, useMyListings } from "@/lib/cabinet-hooks"
-import { LISTING_TYPES, LISTING_TYPE_LABELS } from "@/lib/catalog"
+import { type City, LISTING_TYPES, LISTING_TYPE_LABELS } from "@/lib/catalog"
 import { formatPriceFrom } from "@/lib/format"
 import { applyFieldErrors } from "@/lib/form-errors"
 import { imageFileProblem, uploadImage } from "@/lib/media"
@@ -37,6 +38,7 @@ const FIELD_NAMES = {
 function ListingForm({ listing, onSaved }: { listing: MyListing | null; onSaved(): void }) {
   const categories = useCategories()
   const [failure, setFailure] = useState<string | null>(null)
+  const [city, setCity] = useState<City | null>(listing?.city ?? null)
   const {
     register,
     handleSubmit,
@@ -50,9 +52,9 @@ function ListingForm({ listing, onSaved }: { listing: MyListing | null; onSaved(
     setFailure(null)
     try {
       if (listing) {
-        await unwrap(api.PUT("/v1/me/listings/{id}", { params: { path: { id: listing.id } }, body: listingRequest(values, listing.attributes) }))
+        await unwrap(api.PUT("/v1/me/listings/{id}", { params: { path: { id: listing.id } }, body: listingRequest(values, listing.attributes, city?.id) }))
       } else {
-        await unwrap(api.POST("/v1/me/listings", { body: { ...listingRequest(values), type: values.type } }))
+        await unwrap(api.POST("/v1/me/listings", { body: { ...listingRequest(values, undefined, city?.id), type: values.type } }))
       }
       await refreshCabinet()
       onSaved()
@@ -87,6 +89,7 @@ function ListingForm({ listing, onSaved }: { listing: MyListing | null; onSaved(
       {type === "MADE_TO_ORDER" ? (
         <TextField label="Срок изготовления, дней" inputMode="numeric" error={errors.leadTimeDays?.message} {...register("leadTimeDays")} />
       ) : null}
+      <CityField value={city} onChange={setCity} />
       <CheckboxField label="Возможна доставка" {...register("deliveryAvailable")} />
       <CheckboxField label="Скрыть из каталога" {...register("hidden")} />
       <Button type="submit" className="w-fit" disabled={isSubmitting}>
@@ -118,7 +121,7 @@ function ListingRow({ listing, onEdit }: { listing: MyListing; onEdit(): void })
       unwrap(
         api.PUT("/v1/me/listings/{id}", {
           params: { path: { id: listing.id } },
-          body: listingRequest({ ...listingValuesOf(listing), hidden: listing.status !== "HIDDEN" }, listing.attributes),
+          body: listingRequest({ ...listingValuesOf(listing), hidden: listing.status !== "HIDDEN" }, listing.attributes, listing.city?.id),
         }),
       ),
     )

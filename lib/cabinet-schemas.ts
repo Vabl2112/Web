@@ -28,10 +28,11 @@ export function profileValuesOf(profile: MyCreatorProfile): ProfileValues {
 }
 
 /** The body of the save: empty name and category are left out (the API wants at least one character), the text fields go as they are. */
-export function profileRequest(values: ProfileValues): CreatorProfileInput {
+export function profileRequest(values: ProfileValues, cityId?: string): CreatorProfileInput {
   const request: CreatorProfileInput = { bio: values.bio, tags: tagsOfText(values.tags) }
   if (values.displayName.trim() !== "") request.displayName = values.displayName.trim()
   if (values.categoryId !== "") request.categoryId = values.categoryId
+  if (cityId) request.cityId = cityId
   return request
 }
 
@@ -90,7 +91,7 @@ export function listingValuesOf(listing: MyListing): ListingValues {
  * The body of a save. A field that belongs to another type is never sent (the API refuses it), the price is left out for "by agreement",
  * and `attributes` (which this form does not edit yet) go back as they were so that saving does not erase them.
  */
-export function listingRequest(values: ListingValues, attributes?: Record<string, string>): ListingInput {
+export function listingRequest(values: ListingValues, attributes?: Record<string, string>, cityId?: string): ListingInput {
   const price = minorOfRubles(values.price)
   return {
     title: values.title.trim(),
@@ -102,6 +103,7 @@ export function listingRequest(values: ListingValues, attributes?: Record<string
     ...(values.type === "READY_PRODUCT" ? { inStock: values.inStock } : {}),
     ...(values.type === "MADE_TO_ORDER" ? { leadTimeDays: Number(values.leadTimeDays) } : {}),
     ...(attributes ? { attributes } : {}),
+    ...(cityId ? { cityId } : {}),
     status: values.hidden ? "HIDDEN" : "ACTIVE",
   }
 }
