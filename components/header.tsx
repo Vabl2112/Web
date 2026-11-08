@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { LogOut, Menu, MessageSquare, X } from "lucide-react"
+import { LogOut, Menu, X } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,6 +17,7 @@ import {
 import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { initialsOf } from "@/lib/auth/initials"
 import { useSession } from "@/lib/auth/session"
+import { MessagesLink } from "@/components/messaging/messages-link"
 import { useFeatures } from "@/lib/features"
 
 const navLinks = [
@@ -29,7 +30,7 @@ const navLinks = [
 function accountLinks(isAdmin: boolean, isCreator: boolean, messaging: boolean) {
   return [
     { href: "/cabinet", label: isCreator ? "Кабинет" : "Стать создателем" },
-    ...(messaging ? [{ href: "/messages", label: "Сообщения" }] : []),
+    ...(messaging ? [{ href: isCreator ? "/cabinet/messages" : "/messages", label: "Сообщения" }] : []),
     ...(isAdmin ? [{ href: "/admin/moderation", label: "Модерация" }, { href: "/admin/metrics", label: "Метрики" }] : []),
   ]
 }
@@ -85,13 +86,7 @@ export function Header() {
           {!isLoading && account === null ? <GuestButtons /> : null}
           {account !== null ? (
             <>
-              {messaging ? (
-                <Button asChild variant="ghost" size="icon" className="hidden text-muted-foreground sm:flex">
-                  <Link href="/messages" aria-label="Сообщения">
-                    <MessageSquare className="size-5" />
-                  </Link>
-                </Button>
-              ) : null}
+              <MessagesLink />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="hidden items-center gap-2 px-2 sm:flex" aria-label="Меню аккаунта">
