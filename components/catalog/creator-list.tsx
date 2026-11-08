@@ -11,7 +11,7 @@ import { useMore } from "@/lib/use-more"
 /** The showcases of a page: the first page came from the server, "Show more" reads the next ones with the same filters. */
 export function CreatorList({ initial, query }: { initial: Page<CreatorSummary>; query: CatalogQuery }) {
   const { items, hasMore, loading, failure, loadMore } = useMore(initial, (cursor) =>
-    unwrap(api.GET("/v1/creators", { params: { query: { categoryId: query.categoryId, q: query.q, cursor } } })),
+    unwrap(api.GET("/v1/creators", { params: { query: { categoryId: query.categoryId, cityId: query.cityId, q: query.q, cursor } } })),
   )
   if (items.length === 0) return <EmptyState>Ничего не нашлось. Попробуйте другой запрос или категорию.</EmptyState>
   return (

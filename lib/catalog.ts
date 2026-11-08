@@ -4,6 +4,7 @@ import { firstOf } from "@/lib/search-params"
 type Schemas = components["schemas"]
 export type ListingType = Schemas["ListingType"]
 export type Category = Schemas["Category"]
+export type City = Schemas["City"]
 export type CreatorSummary = Schemas["CreatorSummary"]
 export type CreatorProfile = Schemas["CreatorProfile"]
 export type ListingSummary = Schemas["ListingSummary"]
@@ -24,11 +25,15 @@ export interface CatalogQuery {
   categoryId?: string
   subcategoryId?: string
   type?: ListingType
+  cityId?: string
+  /** The name of the chosen city, only to show it in the chip of the filter (the API filters by `cityId`). */
+  cityName?: string
   q?: string
 }
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_SEARCH_LENGTH = 100
+const MAX_CITY_NAME_LENGTH = 120
 
 function idOf(value: string | undefined): string | undefined {
   return value !== undefined && ID_PATTERN.test(value) ? value : undefined
@@ -43,6 +48,12 @@ export function parseCatalogQuery(params: Record<string, string | string[] | und
   if (subcategoryId !== undefined) query.subcategoryId = subcategoryId
   const type = LISTING_TYPES.find((candidate) => candidate === firstOf(params.type))
   if (type !== undefined) query.type = type
+  const cityId = idOf(firstOf(params.cityId))
+  if (cityId !== undefined) {
+    query.cityId = cityId
+    const cityName = firstOf(params.cityName)?.trim().slice(0, MAX_CITY_NAME_LENGTH)
+    if (cityName) query.cityName = cityName
+  }
   const q = firstOf(params.q)?.trim().slice(0, MAX_SEARCH_LENGTH)
   if (q) query.q = q
   return query
@@ -51,7 +62,7 @@ export function parseCatalogQuery(params: Record<string, string | string[] | und
 /** The address of a catalog page with the given filters; absent and empty ones are left out, so the same filters make the same address. */
 export function catalogHref(path: string, query: CatalogQuery): string {
   const search = new URLSearchParams()
-  for (const key of ["categoryId", "subcategoryId", "type", "q"] as const) {
+  for (const key of ["categoryId", "subcategoryId", "type", "cityId", "cityName", "q"] as const) {
     const value = query[key]
     if (value !== undefined && value !== "") search.set(key, value)
   }

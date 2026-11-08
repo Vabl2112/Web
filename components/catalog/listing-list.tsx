@@ -22,7 +22,7 @@ export function ListingList({ initial, query = {}, creatorId, emptyText = "Ни�
     unwrap(
       creatorId === undefined
         ? api.GET("/v1/listings", {
-            params: { query: { categoryId: query.categoryId, type: query.type ? [query.type] : undefined, q: query.q, cursor } },
+            params: { query: { categoryId: query.categoryId, type: query.type ? [query.type] : undefined, cityId: query.cityId, q: query.q, cursor } },
           })
         : api.GET("/v1/creators/{id}/listings", { params: { path: { id: creatorId }, query: { cursor } } }),
     ),

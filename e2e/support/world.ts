@@ -156,14 +156,19 @@ export async function prepareCreator(prefix: string, options: CreatorOptions = {
   for (const [index, color] of ([[143, 47, 79], [79, 143, 47], [143, 111, 47]] as [number, number, number][]).entries()) {
     await api.ok(api.post("/me/portfolio-items", { mediaId: await api.upload(solidPng(`work${index}`, color)), categoryId: category!.id }), 201)
   }
-  if (options.submit || options.publish) await api.ok(api.post("/me/creator-profile/submit"), 200)
-  if (options.publish) {
-    const admin = await adminApi()
-    await admin.ok(admin.post(`/admin/creators/${profile.id}/content/approve`), 204)
-    await admin.ok(admin.post(`/admin/creators/${profile.id}/approve`), 200)
-    await admin.dispose()
-  }
-  return { person, creatorId: profile.id, displayName, listingTitle, api }
+  const creator: Creator = { person, creatorId: profile.id, displayName, listingTitle, api }
+  if (options.publish) await publishCreator(creator)
+  else if (options.submit) await api.ok(api.post("/me/creator-profile/submit"), 200)
+  return creator
+}
+
+/** Sends the showcase to review and approves it, content and all, as the administrator. */
+export async function publishCreator(creator: Creator): Promise<void> {
+  await creator.api.ok(creator.api.post("/me/creator-profile/submit"), 200)
+  const admin = await adminApi()
+  await admin.ok(admin.post(`/admin/creators/${creator.creatorId}/content/approve`), 204)
+  await admin.ok(admin.post(`/admin/creators/${creator.creatorId}/approve`), 200)
+  await admin.dispose()
 }
 
 /** Signs in through the login page, the way a person does, and waits until the page they asked for is open. */

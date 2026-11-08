@@ -16,6 +16,18 @@ export default function PrivacyPage() {
           <li>версию текста, который вы приняли при регистрации;</li>
           <li>сведения о том, что вы вошли в аккаунт, пока вы не вышли или не истёк срок входа.</li>
         </ul>
+        <h2 className="text-xl font-semibold">Источники данных</h2>
+        <p>
+          Справочник городов взят из открытого набора{" "}
+          <a href="https://github.com/hflabs/city" className="underline underline-offset-4" rel="noreferrer">
+            hflabs/city
+          </a>{" "}
+          (HFLabs), лицензия{" "}
+          <a href="https://creativecommons.org/licenses/by/4.0/deed.ru" className="underline underline-offset-4" rel="noreferrer">
+            CC BY 4.0
+          </a>
+          . Мы выбрали из него названия городов, регионов и численность населения.
+        </p>
       </LegalArticle>
     </div>
   )

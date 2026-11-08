@@ -86,6 +86,8 @@ export function SearchForm({ action, query, placeholder }: { action: string; que
     <form action={action} method="get" role="search" className="flex max-w-xl gap-2">
       {query.categoryId ? <input type="hidden" name="categoryId" value={query.categoryId} /> : null}
       {query.type ? <input type="hidden" name="type" value={query.type} /> : null}
+      {query.cityId ? <input type="hidden" name="cityId" value={query.cityId} /> : null}
+      {query.cityId && query.cityName ? <input type="hidden" name="cityName" value={query.cityName} /> : null}
       <Input type="search" name="q" defaultValue={query.q ?? ""} placeholder={placeholder} maxLength={100} aria-label={placeholder} />
       <Button type="submit">Найти</Button>
     </form>
