@@ -1,26 +1,10 @@
 import useSWR, { type Key, type SWRConfiguration } from "swr"
 import useSWRInfinite from "swr/infinite"
-import { type ApiError, toApiError } from "./errors"
+import { type Answer, type Page, unwrap } from "./answers"
+import type { ApiError } from "./errors"
 
-/** What a call of the client of the API gives back. */
-export interface Answer<T> {
-  data?: T
-  error?: unknown
-  response: Response
-}
-
-/** Turns the answer of a call into its data, or throws an `ApiError`, which is what SWR wants from a fetcher. */
-export async function unwrap<T>(call: Promise<Answer<T>>): Promise<T> {
-  const { data, error, response } = await call
-  if (!response.ok) throw toApiError(response.status, error)
-  return data as T
-}
-
-/** Like `unwrap` for an answer that has no body (`202`, `204`): throws an `ApiError` when the call failed. */
-export async function expectOk(call: Promise<Answer<unknown>>): Promise<void> {
-  const { error, response } = await call
-  if (!response.ok) throw toApiError(response.status, error)
-}
+// The helpers that do not need React live in `answers.ts` (Server Components import them from there); these names stay importable here.
+export { type Answer, type Page, expectOk, unwrap } from "./answers"
 
 /** A read by SWR with a fetcher of your own: `key` says what is read (`null` reads nothing). */
 export function useRead<T>(key: Key, fetcher: () => Promise<T>, config?: SWRConfiguration<T, ApiError>) {
@@ -30,12 +14,6 @@ export function useRead<T>(key: Key, fetcher: () => Promise<T>, config?: SWRConf
 /** A read by SWR: `load` is a call of the client (`() => api.GET("/v1/...")`), `key` says what is read (`null` reads nothing). */
 export function useGet<T>(key: Key, load: () => Promise<Answer<T>>, config?: SWRConfiguration<T, ApiError>) {
   return useRead<T>(key, () => unwrap(load()), config)
-}
-
-/** One page of a list: the items and the cursor of the next page (`null` on the last one). */
-export interface Page<T> {
-  items: T[]
-  nextCursor?: string | null
 }
 
 /** A list read page by page with the cursor of the contract; `loadMore` adds the next page, `hasMore` tells whether there is one. */

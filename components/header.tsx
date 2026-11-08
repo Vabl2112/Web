@@ -20,10 +20,9 @@ import { useSession } from "@/lib/auth/session"
 import { useFeatures } from "@/lib/features"
 
 const navLinks = [
-  { href: "/masters", label: "Мастера" },
-  { href: "/gallery", label: "Фотогалерея" },
-  { href: "/services", label: "Услуги" },
-  { href: "/products", label: "Товары" },
+  { href: "/creators", label: "Создатели" },
+  { href: "/listings", label: "Позиции" },
+  { href: "/gallery", label: "Работы" },
 ]
 
 /** The links of the account menu: the cabinet for everybody, the administration only for an administrator (the API checks it again). */
