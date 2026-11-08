@@ -39,6 +39,8 @@ const MESSAGES: Record<string, string> = {
   EMAIL_ALREADY_VERIFIED: "Адрес уже подтверждён.",
   TOKEN_INVALID: "Ссылка недействительна или устарела.",
   UNSUBSCRIBE_TOKEN_INVALID: "Ссылка для отписки недействительна.",
+  OWNER_NOT_ACTIVE: "Аккаунт владельца витрины не активен.",
+  CONTENT_NOT_PENDING: "Этот материал уже не ждёт проверки. Обновите страницу.",
   RATE_LIMITED: "Слишком много попыток. Попробуйте чуть позже.",
   CLIENT_UPGRADE_REQUIRED: "Обновите страницу.",
   SERVICE_BUSY: "Сервис занят. Попробуйте ещё раз через минуту.",
