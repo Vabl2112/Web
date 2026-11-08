@@ -121,6 +121,20 @@ describe("pendingRefsOf", () => {
     ])
   })
 
+  it("counts the avatar of a showcase that was never published: it waits in `avatar`, not in `pendingAvatar`", () => {
+    const refs = pendingRefsOf(view({ profile: profile({ avatar: { image, reviewStatus: "PENDING" } }) }))
+
+    expect(refs).toEqual([{ kind: "AVATAR" }])
+  })
+
+  it("counts an avatar once when both fields wait", () => {
+    const refs = pendingRefsOf(
+      view({ profile: profile({ avatar: { image, reviewStatus: "PENDING" }, pendingAvatar: { image, reviewStatus: "PENDING" } }) }),
+    )
+
+    expect(refs).toEqual([{ kind: "AVATAR" }])
+  })
+
   it("is empty when nothing waits", () => {
     expect(pendingRefsOf(view({ listings: [listing("l1", "APPROVED", ["APPROVED"])] }))).toEqual([])
     expect(pendingRefsOf(view({ profile: profile({ pendingAvatar: { image, reviewStatus: "REJECTED" } }) }))).toEqual([])

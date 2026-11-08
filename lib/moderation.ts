@@ -60,7 +60,8 @@ export function canDecide(status: ShowcaseStatus): boolean {
 /** Everything of the showcase that waits for approval: the new avatar, listings, photos of listings and works. */
 export function pendingRefsOf(view: AdminCreatorView): ContentRef[] {
   const refs: ContentRef[] = []
-  if (view.profile.pendingAvatar?.reviewStatus === "PENDING") refs.push({ kind: "AVATAR" })
+  // Before the first publication the avatar itself waits (`avatar`); on a published showcase a new one waits next to the old (`pendingAvatar`).
+  if (view.profile.avatar?.reviewStatus === "PENDING" || view.profile.pendingAvatar?.reviewStatus === "PENDING") refs.push({ kind: "AVATAR" })
   for (const listing of view.listings) {
     if (listing.reviewStatus === "PENDING") refs.push({ kind: "LISTING", id: listing.id })
     for (const photo of listing.photos) {
