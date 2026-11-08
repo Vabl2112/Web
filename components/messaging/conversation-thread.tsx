@@ -123,7 +123,11 @@ function ThreadBody({ conversationId }: { conversationId: string }) {
           <Bubble key={message.id} message={message} />
         ))}
       </ul>
-      <MessageComposer onSend={send} />
+      {conversation?.counterpart.deleted ? (
+        <FormAlert tone="info" message="Собеседник удалил аккаунт. Писать ему больше нельзя, история переписки остаётся." />
+      ) : (
+        <MessageComposer onSend={send} />
+      )}
     </section>
   )
 }
