@@ -2,10 +2,22 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Bell, MessageSquare, ChevronDown, MapPin, Menu, X } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useRouter } from "next/navigation"
+import { LogOut, Menu, MessageSquare, X } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { initialsOf } from "@/lib/auth/initials"
+import { useSession } from "@/lib/auth/session"
+import { useFeatures } from "@/lib/features"
 
 const navLinks = [
   { href: "/masters", label: "Мастера" },
@@ -14,22 +26,47 @@ const navLinks = [
   { href: "/products", label: "Товары" },
 ]
 
+/** The links of the account menu: the cabinet for everybody, the administration only for an administrator (the API checks it again). */
+function accountLinks(isAdmin: boolean, messaging: boolean) {
+  return [
+    { href: "/cabinet", label: "Кабинет" },
+    ...(messaging ? [{ href: "/messages", label: "Сообщения" }] : []),
+    ...(isAdmin ? [{ href: "/admin/moderation", label: "Модерация" }, { href: "/admin/metrics", label: "Метрики" }] : []),
+  ]
+}
+
+function GuestButtons() {
+  return (
+    <div className="hidden items-center gap-2 sm:flex">
+      <Button asChild variant="ghost" size="sm">
+        <Link href="/login">Войти</Link>
+      </Button>
+      <Button asChild size="sm">
+        <Link href="/register">Регистрация</Link>
+      </Button>
+    </div>
+  )
+}
+
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
+  const router = useRouter()
+  const { account, isLoading, isAdmin, signOut } = useSession()
+  const { messaging } = useFeatures()
+  const links = accountLinks(isAdmin, messaging)
+
+  const leave = async () => {
+    await signOut()
+    setIsOpen(false)
+    router.push("/")
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        <div className="flex items-center gap-4 lg:gap-6">
-          <Link href="/" className="flex items-center gap-1">
-            <span className="text-2xl font-bold text-amber-500">EGG</span>
-          </Link>
-          
-          <Button variant="outline" size="sm" className="hidden gap-2 rounded-full sm:flex">
-            <MapPin className="size-4" />
-            <span>Москва</span>
-          </Button>
-        </div>
+        <Link href="/" className="flex items-center gap-1">
+          <span className="text-2xl font-bold text-amber-500">EGG</span>
+        </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-6 lg:flex">
@@ -45,22 +82,43 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-4">
-          <Button variant="ghost" size="icon" className="hidden text-muted-foreground sm:flex">
-            <Bell className="size-5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="hidden text-muted-foreground sm:flex">
-            <MessageSquare className="size-5" />
-          </Button>
-          
-          {/* User Avatar - Desktop */}
-          <div className="hidden items-center gap-2 sm:flex">
-            <Avatar className="size-9">
-              <AvatarImage src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face" />
-              <AvatarFallback>АС</AvatarFallback>
-            </Avatar>
-            <span className="hidden text-sm font-medium lg:inline-block">Алексей</span>
-            <ChevronDown className="size-4 text-muted-foreground" />
-          </div>
+          {isLoading ? <div className="hidden size-9 sm:block" aria-hidden /> : null}
+          {!isLoading && account === null ? <GuestButtons /> : null}
+          {account !== null ? (
+            <>
+              {messaging ? (
+                <Button asChild variant="ghost" size="icon" className="hidden text-muted-foreground sm:flex">
+                  <Link href="/messages" aria-label="Сообщения">
+                    <MessageSquare className="size-5" />
+                  </Link>
+                </Button>
+              ) : null}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="hidden items-center gap-2 px-2 sm:flex" aria-label="Меню аккаунта">
+                    <Avatar className="size-9">
+                      <AvatarFallback>{initialsOf(account.name)}</AvatarFallback>
+                    </Avatar>
+                    <span className="hidden max-w-32 truncate text-sm font-medium lg:inline-block">{account.name}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="truncate">{account.email}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {links.map((link) => (
+                    <DropdownMenuItem key={link.href} asChild>
+                      <Link href={link.href}>{link.label}</Link>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={leave}>
+                    <LogOut className="size-4" />
+                    Выйти
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : null}
 
           {/* Mobile Menu */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -77,25 +135,26 @@ export function Header() {
                   <SheetClose asChild>
                     <Button variant="ghost" size="icon">
                       <X className="size-5" />
+                      <span className="sr-only">Закрыть меню</span>
                     </Button>
                   </SheetClose>
                 </div>
-                
-                {/* Mobile User Info */}
-                <div className="flex items-center gap-3 border-b border-border p-4">
-                  <Avatar className="size-12">
-                    <AvatarImage src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face" />
-                    <AvatarFallback>АС</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">Алексей</p>
-                    <p className="text-sm text-muted-foreground">Москва</p>
+
+                {account !== null ? (
+                  <div className="flex items-center gap-3 border-b border-border p-4">
+                    <Avatar className="size-12">
+                      <AvatarFallback>{initialsOf(account.name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{account.name}</p>
+                      <p className="truncate text-sm text-muted-foreground">{account.email}</p>
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
                 {/* Mobile Navigation */}
                 <nav className="flex flex-col p-4">
-                  {navLinks.map((link) => (
+                  {[...navLinks, ...(account !== null ? links : [])].map((link) => (
                     <SheetClose key={link.href} asChild>
                       <Link
                         href={link.href}
@@ -108,15 +167,27 @@ export function Header() {
                 </nav>
 
                 {/* Mobile Actions */}
-                <div className="mt-auto border-t border-border p-4">
-                  <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon">
-                      <Bell className="size-5" />
+                <div className="mt-auto flex flex-col gap-2 border-t border-border p-4">
+                  {account !== null ? (
+                    <Button variant="outline" onClick={leave}>
+                      <LogOut className="size-4" />
+                      Выйти
                     </Button>
-                    <Button variant="outline" size="icon">
-                      <MessageSquare className="size-5" />
-                    </Button>
-                  </div>
+                  ) : null}
+                  {!isLoading && account === null ? (
+                    <>
+                      <SheetClose asChild>
+                        <Button asChild variant="outline">
+                          <Link href="/login">Войти</Link>
+                        </Button>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Button asChild>
+                          <Link href="/register">Регистрация</Link>
+                        </Button>
+                      </SheetClose>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </SheetContent>

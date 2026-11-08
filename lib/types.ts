@@ -67,23 +67,3 @@ export interface GalleryImage {
   subCategory: string
   height: "small" | "medium" | "large"
 }
-
-// Calculator types
-export interface CalculatorParameter {
-  id: string
-  label: string
-  type: "slider" | "radio" | "select"
-  defaultValue: string | number
-  options?: { value: string; label: string }[]
-  min?: number
-  max?: number
-  step?: number
-  unit?: string
-  marks?: { value: number; label: string }[]
-}
-
-export interface CalculatorConfig {
-  formula: string
-  parameters: CalculatorParameter[]
-  currency: string
-}
