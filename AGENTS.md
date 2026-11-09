@@ -51,9 +51,9 @@ copy (`contract/SHA256SUMS`). `lib/api/schema.d.ts` is generated from the copy a
 
 ## Not here yet
 Publishing the backend image to ghcr.io and the bot PR `api:sync` (with the staging deploy, P9.1); `Dockerfile` and deploy workflows
-(P9.1); the e2e job in CI (the specs are in `e2e/` and run with `pnpm e2e` against a local stack, see `docs/e2e.md`; CI needs the
-backend image); the choice of a city and the data of cities. The spike S5 is answered by the spec of the upload (9.9 MB passes, 10.5 MB
-is refused with `413` through the rewrite). A Prism mock and Testing Library are not used: the real backend exists, and the logic that has rules is kept out of
+(P9.1). The e2e specs in `e2e/` do not run in the CI of this repository (it has no backend): the workflow `E2E` of `egg-backend` runs them
+against the backend on an empty database after every merge there, every night and on demand (`docs/e2e.md`). The spike S5 is answered by
+the spec of the upload (9.9 MB passes, 10.5 MB is refused with `413` through the rewrite). A Prism mock and Testing Library are not used: the real backend exists, and the logic that has rules is kept out of
 React so that Vitest can reach it.
 
 The build for Vercel (the demo) sets `VERCEL=1`, and only then the layout loads `@vercel/analytics`; `EGG_API_ORIGIN` and
