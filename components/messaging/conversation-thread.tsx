@@ -14,7 +14,10 @@ import { cn } from "@/lib/utils"
 
 const NEAR_BOTTOM_PX = 240
 
-/** Tells the API that everything of the other side up to the newest message is read, once the conversation is on the screen. */
+/**
+ * Tells the API that everything of the other side up to the newest message on the screen is read, once the conversation is on the
+ * screen. The number goes with the call (`upToSeq`), so a message that arrives meanwhile stays unread until it is shown.
+ */
 function useMarkRead(conversationId: string, messages: Message[]) {
   const readUpTo = useRef(0)
   useEffect(() => {
@@ -23,7 +26,7 @@ function useMarkRead(conversationId: string, messages: Message[]) {
       if (newest <= readUpTo.current || document.visibilityState !== "visible") return
       const previous = readUpTo.current
       readUpTo.current = newest
-      expectOk(api.POST("/v1/conversations/{id}/read", { params: { path: { id: conversationId } } })).then(
+      expectOk(api.POST("/v1/conversations/{id}/read", { params: { path: { id: conversationId } }, body: { upToSeq: newest } })).then(
         () => refreshInbox(),
         () => {
           readUpTo.current = previous

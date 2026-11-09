@@ -1797,14 +1797,23 @@ paths:
       tags: [messaging]
       operationId: markConversationRead
       summary: Mark the conversation as read
-      description: Resets the unread counter of this conversation for the caller.
+      description: |
+        Moves the read mark of the caller, which resets the unread counter of this conversation. Without a body, or without `upToSeq`, everything up to the newest message is read. With `upToSeq` only the messages up to that number are read, so a message that arrived after the client last looked stays unread; a number above the newest message counts as the newest, and the mark never moves back.
       x-egg-auth: user
       parameters:
         - $ref: '#/components/parameters/EggClient'
         - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkReadRequest'
       responses:
         '204':
           description: Marked as read.
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3676,6 +3685,16 @@ components:
       example:
         text: Yes, it is in stock.
         clientMessageId: 7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d
+    MarkReadRequest:
+      type: object
+      properties:
+        upToSeq:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The `seq` of the newest message the client has shown. Omitted means everything up to the newest message.
+      example:
+        upToSeq: 12
     MessageList:
       type: object
       required: [items, hasMore]
