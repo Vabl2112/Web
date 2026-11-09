@@ -982,7 +982,7 @@ export interface paths {
         put?: never;
         /**
          * Mark the conversation as read
-         * @description Resets the unread counter of this conversation for the caller.
+         * @description Moves the read mark of the caller, which resets the unread counter of this conversation. Without a body, or without `upToSeq`, everything up to the newest message is read. With `upToSeq` only the messages up to that number are read, so a message that arrived after the client last looked stays unread; a number above the newest message counts as the newest, and the mark never moves back.
          */
         post: operations["markConversationRead"];
         delete?: never;
@@ -2114,6 +2114,18 @@ export interface components {
             text: string;
             /** Format: uuid */
             clientMessageId: string;
+        };
+        /**
+         * @example {
+         *       "upToSeq": 12
+         *     }
+         */
+        MarkReadRequest: {
+            /**
+             * Format: int64
+             * @description The `seq` of the newest message the client has shown. Omitted means everything up to the newest message.
+             */
+            upToSeq?: number;
         };
         /**
          * @example {
@@ -4415,7 +4427,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MarkReadRequest"];
+            };
+        };
         responses: {
             /** @description Marked as read. */
             204: {
@@ -4424,6 +4440,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["MessagingNotFound"];
