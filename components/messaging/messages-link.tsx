@@ -20,7 +20,7 @@ export function MessagesLink() {
   if (!messaging || account === null) return null
   const unread = data?.unreadConversations ?? 0
   return (
-    <Button asChild variant="ghost" size="icon" className="relative hidden text-muted-foreground sm:flex">
+    <Button asChild variant="ghost" size="icon" className="relative text-muted-foreground">
       <Link href={isCreator ? "/cabinet/messages" : "/messages"} aria-label={unread > 0 ? `Сообщения, диалогов с новыми: ${unread}` : "Сообщения"}>
         <MessageSquare className="size-5" />
         {unread > 0 ? (
