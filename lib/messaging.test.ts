@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  type Conversation,
   type Message,
   MAX_MESSAGE_LENGTH,
   conversationHref,
@@ -11,6 +12,7 @@ import {
   lastSeqOf,
   mergeMessages,
   messageTextProblem,
+  withOlder,
 } from "./messaging"
 
 const message = (seq: number, mine = false, text = `m${seq}`): Message => ({ id: `id${seq}`, seq, mine, text, createdAt: "2026-11-01T10:00:00Z" })
@@ -37,6 +39,23 @@ describe("mergeMessages", () => {
     mergeMessages(current, [message(2)])
 
     expect(current).toHaveLength(1)
+  })
+})
+
+const conversation = (id: string): Conversation => ({ id }) as Conversation
+
+describe("withOlder", () => {
+  it("puts the older pages after the first one", () => {
+    expect(withOlder([conversation("a"), conversation("b")], [conversation("c")]).map((c) => c.id)).toEqual(["a", "b", "c"])
+  })
+
+  it("keeps a conversation that moved up to the first page once, where the first page has it", () => {
+    // the person read page two, then a message in "c" made it the newest and the first page was read again
+    expect(withOlder([conversation("c"), conversation("a")], [conversation("b"), conversation("c")]).map((c) => c.id)).toEqual(["c", "a", "b"])
+  })
+
+  it("is the first page alone when nothing older was asked for", () => {
+    expect(withOlder([conversation("a")], []).map((c) => c.id)).toEqual(["a"])
   })
 })
 
