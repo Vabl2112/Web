@@ -3,10 +3,11 @@
 import Link from "next/link"
 import { FormAlert } from "@/components/auth/form-alert"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { errorTextOf } from "@/lib/api/errors"
 import { useSession } from "@/lib/auth/session"
-import { type ConversationRole, conversationHref, conversationsHref, counterpartName, formatMessageTime } from "@/lib/messaging"
-import { useConversations } from "@/lib/messaging-hooks"
+import { type ConversationRole, conversationHref, conversationsHref, counterpartName, formatMessageTime, withOlder } from "@/lib/messaging"
+import { useConversations, useOlderConversations } from "@/lib/messaging-hooks"
 
 const SNIPPET_LENGTH = 90
 
@@ -18,10 +19,12 @@ const snippetOf = (text: string) => (text.length > SNIPPET_LENGTH ? `${text.slic
  */
 export function ConversationList({ role }: { role: ConversationRole }) {
   const { data, error, isLoading } = useConversations()
+  const more = useOlderConversations(data)
   const { isCreator } = useSession()
   const otherRole: ConversationRole = role === "BUYER" ? "CREATOR" : "BUYER"
-  const items = (data?.items ?? []).filter((conversation) => conversation.myRole === role)
-  const others = (data?.items ?? []).filter((conversation) => conversation.myRole === otherRole)
+  const all = withOlder(data?.items ?? [], more.older)
+  const items = all.filter((conversation) => conversation.myRole === role)
+  const others = all.filter((conversation) => conversation.myRole === otherRole)
   const unreadElsewhere = others.reduce((sum, conversation) => sum + conversation.unreadCount, 0)
   // A creator may also write to other creators as a buyer, and the other way round; the link is there when there is something to see.
   const showCrossLink = role === "BUYER" ? isCreator : others.length > 0
@@ -33,7 +36,7 @@ export function ConversationList({ role }: { role: ConversationRole }) {
       <h2 className="text-2xl font-semibold">{role === "BUYER" ? "Сообщения" : "Сообщения витрины"}</h2>
       {error ? <FormAlert message={errorTextOf(error)} /> : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Загружаем…</p> : null}
-      {data && items.length === 0 ? (
+      {data && items.length === 0 && !more.hasMore ? (
         <p className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">
           {role === "BUYER" ? "Диалогов пока нет. Напишите создателю со страницы его витрины." : "Вам пока никто не писал."}
         </p>
@@ -63,6 +66,12 @@ export function ConversationList({ role }: { role: ConversationRole }) {
           </li>
         ))}
       </ul>
+      {more.failure ? <FormAlert message={more.failure} /> : null}
+      {more.hasMore ? (
+        <Button type="button" variant="outline" className="w-fit" disabled={more.loading} onClick={() => void more.loadMore()}>
+          {more.loading ? "Загружаем…" : "Показать ещё"}
+        </Button>
+      ) : null}
       {showCrossLink ? (
         <Link href={conversationsHref(otherRole)} className="w-fit text-sm text-muted-foreground underline underline-offset-4">
           {role === "BUYER" ? "Сообщения вашей витрины" : "Ваши диалоги как покупателя"}

@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { mutate } from "swr"
+import { unwrap } from "@/lib/api/answers"
 import { api } from "@/lib/api/client"
-import { toApiError } from "@/lib/api/errors"
+import { errorTextOf, toApiError } from "@/lib/api/errors"
 import { useGet } from "@/lib/api/hooks"
 import {
+  type Conversation,
   IDLE_LIMIT_MS,
   INBOX_INTERVAL_MS,
   type Message,
@@ -35,6 +37,36 @@ export function useConversations() {
     ...QUIET,
     refreshInterval: INBOX_INTERVAL_MS,
   })
+}
+
+/**
+ * The pages of the list after the first one, on request ("Показать ещё"). The first page comes from `useConversations` and is read again
+ * every half minute; the older ones are read once, by the cursor that the last page gave. The state starts over with the component.
+ */
+export function useOlderConversations(first: { nextCursor?: string | null } | undefined) {
+  const [older, setOlder] = useState<Conversation[]>([])
+  const [reached, setReached] = useState<string | null | undefined>(undefined)
+  const [loading, setLoading] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  // Until an older page was read, the cursor is the one of the first page.
+  const cursor = reached === undefined ? (first?.nextCursor ?? null) : reached
+
+  const loadMore = useCallback(async () => {
+    if (cursor === null || loading) return
+    setLoading(true)
+    setFailure(null)
+    try {
+      const page = await unwrap(api.GET("/v1/conversations", { params: { query: { limit: LIST_PAGE, cursor } } }))
+      setOlder((current) => [...current, ...page.items])
+      setReached(page.nextCursor ?? null)
+    } catch (error) {
+      setFailure(errorTextOf(error))
+    } finally {
+      setLoading(false)
+    }
+  }, [cursor, loading])
+
+  return { older, hasMore: cursor !== null, loading, failure, loadMore }
 }
 
 /** After a message was read or sent: reads the badge and the list again. */

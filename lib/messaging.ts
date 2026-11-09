@@ -33,6 +33,15 @@ export function cursorAfterSend(lastSeq: number, sentSeq: number): { cursor: num
   return sentSeq === lastSeq + 1 ? { cursor: sentSeq, gap: false } : { cursor: lastSeq, gap: true }
 }
 
+/**
+ * The first page of the conversations (read again every half minute) followed by the older pages that the person asked for. A conversation
+ * that moved up to the first page meanwhile is in both: it is kept once, as the first page has it.
+ */
+export function withOlder(first: Conversation[], older: Conversation[]): Conversation[] {
+  const seen = new Set(first.map((conversation) => conversation.id))
+  return [...first, ...older.filter((conversation) => !seen.has(conversation.id))]
+}
+
 /** The newest message of the other side: everything up to it is read once the conversation is on the screen. */
 export function lastIncomingSeqOf(messages: Message[]): number {
   return messages.reduce((last, message) => (message.mine ? last : Math.max(last, message.seq)), 0)
