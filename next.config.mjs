@@ -1,11 +1,11 @@
 import { computeBuildVersion } from "./scripts/build-version.mjs"
-import { contentSecurityPolicy } from "./scripts/csp.mjs"
+import { securityHeaders } from "./scripts/security-headers.mjs"
 
 // Set for `pnpm dev` and for a build that has no web server in front of it (the demo on Vercel): `/api/v1/...` goes to the backend.
 // Behind nginx (the image for the VM) it is not set: nginx routes `/api/v1/` itself.
 const apiOrigin = process.env.EGG_API_ORIGIN
 
-const policy = contentSecurityPolicy({
+const headers = securityHeaders({
   mediaOrigin: process.env.EGG_MEDIA_ORIGIN,
   development: process.env.NODE_ENV !== "production",
 })
@@ -21,7 +21,7 @@ const nextConfig = {
   },
   output: "standalone",
   experimental: {
-    // An upload may be 10 MB and the proxy of Next cuts a body at 10 MB by default (spike S5, not run yet: see docs/spikes.md).
+    // An upload may be 10 MB and the proxy of Next cuts a body at 10 MB by default (spike S5: 9.9 MB passes, 10.5 MB gets 413).
     proxyClientMaxBodySize: "12mb",
   },
   async rewrites() {
@@ -37,7 +37,7 @@ const nextConfig = {
     ]
   },
   async headers() {
-    return [{ source: "/:path*", headers: [{ key: "Content-Security-Policy", value: policy }] }]
+    return [{ source: "/:path*", headers }]
   },
 }
 

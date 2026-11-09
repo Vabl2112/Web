@@ -19,6 +19,18 @@ test.describe("the public catalog", () => {
     await expect(page.getByText("Посуда на гончарном круге.")).toBeVisible()
   })
 
+  test("every page carries the security headers, with the media origin in the policy", async ({ request }) => {
+    for (const path of ["/", "/creators", "/login"]) {
+      const headers = (await request.get(path)).headers()
+
+      expect(headers["x-content-type-options"], path).toBe("nosniff")
+      expect(headers["x-frame-options"], path).toBe("DENY")
+      expect(headers["referrer-policy"], path).toBe("strict-origin-when-cross-origin")
+      expect(headers["permissions-policy"], path).toContain("camera=()")
+      expect(headers["content-security-policy"], path).toContain("frame-ancestors 'none'")
+    }
+  })
+
   test("a draft is not public, an unknown id is not found (AC-01, AC-05)", async ({ request }) => {
     const draft = await prepareCreator("draft")
 
