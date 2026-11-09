@@ -31,6 +31,7 @@ function AddWork() {
     control,
     reset,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<PortfolioValues>({ resolver: zodResolver(portfolioSchema), defaultValues: { title: "", categoryId: "", subcategoryId: "" } })
   const chosenCategory = useWatch({ control, name: "categoryId" })
@@ -79,13 +80,15 @@ function AddWork() {
         placeholder="Выберите категорию"
         options={categories.map((category) => ({ value: category.id, label: category.name }))}
         error={errors.categoryId?.message}
-        {...register("categoryId")}
+        // A subcategory belongs to one category: another category leaves the old choice behind, and the API refuses the pair.
+        {...register("categoryId", { onChange: () => setValue("subcategoryId", "") })}
       />
       {children.length > 0 ? (
         <SelectField
           label="Подкатегория"
           placeholder="Не выбрана"
           options={children.map((child) => ({ value: child.id, label: child.name }))}
+          error={errors.subcategoryId?.message}
           {...register("subcategoryId")}
         />
       ) : null}
@@ -97,7 +100,17 @@ function AddWork() {
   )
 }
 
-function WorkTile({ item, index, count, onMove, onRemove }: { item: MyPortfolioItem; index: number; count: number; onMove(from: number, to: number): void; onRemove(): void }) {
+interface WorkTileProps {
+  item: MyPortfolioItem
+  index: number
+  count: number
+  /** A change is on its way: the next one is computed from the answer to this one, so the buttons wait. */
+  busy: boolean
+  onMove(from: number, to: number): void
+  onRemove(): void
+}
+
+function WorkTile({ item, index, count, busy, onMove, onRemove }: WorkTileProps) {
   return (
     <li className="flex flex-col gap-2 rounded-xl border border-border p-3">
       <EggImage image={item.image} alt={item.title ?? ""} sizes="(min-width: 768px) 25vw, 50vw" className="aspect-square w-full rounded-lg object-cover" />
@@ -107,13 +120,13 @@ function WorkTile({ item, index, count, onMove, onRemove }: { item: MyPortfolioI
       </div>
       {item.rejectionReason ? <p className="text-sm text-destructive">{item.rejectionReason}</p> : null}
       <div className="flex gap-1">
-        <Button type="button" variant="outline" size="sm" disabled={index === 0} aria-label="Поднять выше" onClick={() => onMove(index, index - 1)}>
+        <Button type="button" variant="outline" size="sm" disabled={busy || index === 0} aria-label="Поднять выше" onClick={() => onMove(index, index - 1)}>
           ←
         </Button>
-        <Button type="button" variant="outline" size="sm" disabled={index === count - 1} aria-label="Опустить ниже" onClick={() => onMove(index, index + 1)}>
+        <Button type="button" variant="outline" size="sm" disabled={busy || index === count - 1} aria-label="Опустить ниже" onClick={() => onMove(index, index + 1)}>
           →
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={onRemove}>
+        <Button type="button" variant="ghost" size="sm" className="ml-auto" disabled={busy} onClick={onRemove}>
           Удалить
         </Button>
       </div>
@@ -124,9 +137,12 @@ function WorkTile({ item, index, count, onMove, onRemove }: { item: MyPortfolioI
 function PortfolioBody() {
   const { data, error, isLoading } = useMyPortfolio()
   const [failure, setFailure] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const items = [...(data?.items ?? [])].sort((a, b) => a.position - b.position)
 
   const run = async (action: () => Promise<void>) => {
+    if (busy) return
+    setBusy(true)
     setFailure(null)
     try {
       await action()
@@ -134,6 +150,7 @@ function PortfolioBody() {
       setFailure(errorTextOf(problem))
     }
     await refreshCabinet()
+    setBusy(false)
   }
 
   const move = (from: number, to: number) => {
@@ -157,7 +174,7 @@ function PortfolioBody() {
       {data && items.length === 0 ? <p className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">Работ пока нет.</p> : null}
       <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {items.map((item, index) => (
-          <WorkTile key={item.id} item={item} index={index} count={items.length} onMove={move} onRemove={() => remove(item)} />
+          <WorkTile key={item.id} item={item} index={index} count={items.length} busy={busy} onMove={move} onRemove={() => remove(item)} />
         ))}
       </ul>
       <AddWork />

@@ -89,7 +89,7 @@ function Overview({ profile }: { profile: MyCreatorProfile }) {
         <FormAlert tone="info" message="Витрина на проверке, обычно это занимает до двух суток. Пока вы можете продолжать её наполнять." />
       ) : null}
       {profile.status === "PUBLISHED" && profile.changedSinceReview ? (
-        <FormAlert tone="info" message="Вы изменили текст опубликованной витрины: правки ждут проверки, посетители пока видят прежнюю версию." />
+        <FormAlert tone="info" message="Вы изменили текст опубликованной витрины: правки уже видны посетителям, а команда проверит их позже." />
       ) : null}
       {profile.pendingAvatar ? (
         <div className="flex items-center gap-4">

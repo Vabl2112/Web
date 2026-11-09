@@ -29,7 +29,8 @@ export function MasonryGrid({ tiles }: { tiles: MasonryTile[] }) {
         return (
           <li key={tile.id} className="mb-3 break-inside-avoid">
             {tile.href ? (
-              <Link href={tile.href} className="block transition-opacity hover:opacity-90">
+              // A picture without a title would be a link without a name for a screen reader.
+              <Link href={tile.href} aria-label={tile.title ? undefined : "Открыть работу"} className="block transition-opacity hover:opacity-90">
                 {picture}
               </Link>
             ) : (

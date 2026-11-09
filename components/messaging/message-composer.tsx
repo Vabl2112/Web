@@ -25,6 +25,7 @@ export function MessageComposer({ onSend, placeholder = "Напишите соо
   const pendingId = useRef<string | null>(null)
 
   const send = async () => {
+    if (busy) return
     const problem = messageTextProblem(text)
     if (problem) return setFailure(problem)
     pendingId.current ??= crypto.randomUUID()
@@ -52,6 +53,8 @@ export function MessageComposer({ onSend, placeholder = "Напишите соо
       {failure ? <FormAlert message={failure} /> : null}
       <Textarea
         value={text}
+        // Read-only while the message is on its way: what is typed meanwhile would be wiped when the send succeeds.
+        readOnly={busy}
         rows={3}
         maxLength={MAX_MESSAGE_LENGTH}
         placeholder={placeholder}

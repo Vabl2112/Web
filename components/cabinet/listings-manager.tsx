@@ -64,6 +64,9 @@ function ListingForm({ listing, onSaved }: { listing: MyListing | null; onSaved(
     }
   })
 
+  // The select of the category takes its value when it appears; with no categories yet it would show the placeholder for a listing that has one.
+  if (categories.length === 0) return <p className="text-sm text-muted-foreground">Загружаем…</p>
+
   return (
     <form onSubmit={save} noValidate className="flex flex-col gap-4">
       {failure ? <FormAlert message={failure} /> : null}

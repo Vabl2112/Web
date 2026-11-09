@@ -21,10 +21,24 @@ import { refreshCabinet, useCategories, useMyProfile } from "@/lib/cabinet-hooks
 import { applyFieldErrors } from "@/lib/form-errors"
 import { imageFileProblem, uploadImage } from "@/lib/media"
 
-function Avatar({ profile, onChange, busy }: { profile: MyCreatorProfile; onChange(file: File): void; busy: boolean }) {
+function Avatar({
+  profile,
+  onChange,
+  onError,
+  busy,
+}: {
+  profile: MyCreatorProfile
+  onChange(file: File): void
+  onError(error: unknown): void
+  busy: boolean
+}) {
   const remove = async () => {
-    await expectOk(api.DELETE("/v1/me/creator-profile/avatar"))
-    await refreshCabinet()
+    try {
+      await expectOk(api.DELETE("/v1/me/creator-profile/avatar"))
+      await refreshCabinet()
+    } catch (error) {
+      onError(error)
+    }
   }
   return (
     <div className="flex items-center gap-4">
@@ -37,9 +51,9 @@ function Avatar({ profile, onChange, busy }: { profile: MyCreatorProfile; onChan
       )}
       <div className="flex flex-col items-start gap-2">
         <UploadButton label={profile.avatar ? "Заменить аватар" : "Загрузить аватар"} busy={busy} onFile={onChange} />
-        {profile.avatar ? (
+        {profile.avatar || profile.pendingAvatar ? (
           <Button type="button" variant="ghost" size="sm" onClick={() => void remove()}>
-            Удалить аватар
+            {profile.pendingAvatar ? "Убрать новый аватар" : "Удалить аватар"}
           </Button>
         ) : null}
         {profile.pendingAvatar ? <p className="text-sm text-muted-foreground">Новый аватар ждёт проверки.</p> : null}
@@ -106,7 +120,7 @@ function ProfileFormBody({ profile }: { profile: MyCreatorProfile }) {
 
   return (
     <div className="flex max-w-xl flex-col gap-6">
-      <Avatar profile={profile} onChange={(file) => void changeAvatar(file)} busy={uploading} />
+      <Avatar profile={profile} onChange={(file) => void changeAvatar(file)} onError={fail} busy={uploading} />
       <form onSubmit={save} noValidate className="flex flex-col gap-4">
         {failure ? <FormAlert message={failure} /> : null}
         {note ? <FormAlert tone="info" message={note} /> : null}
