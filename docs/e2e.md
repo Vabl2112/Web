@@ -1,8 +1,9 @@
 # End-to-end specs (Playwright)
 
 The specs in `e2e/` run the web client against a real backend: `auth`, `unsubscribe`, `catalog`, `cabinet`, `admin` (moderation, suspension,
-metrics, 403 for a buyer) and `messaging` (two browsers, polling; a conversation with a deleted counterpart). CI of this repository does not run them: it has no backend image yet
-(P9.1). Run them on a machine that has the stack.
+metrics, 403 for a buyer) and `messaging` (two browsers, polling; a conversation with a deleted counterpart). CI of this repository does not run them
+(it has no backend). They run in the CI of `egg-backend` (workflow `E2E`, on an empty database): after every merge to its `main`, every
+night, and on demand with the branch of this repository to test (Actions, E2E, Run workflow). On a developer machine they need the stack below.
 
 ## The stack
 1. PostgreSQL 16 and Mailpit: `docker compose up -d` in `egg-backend`. Without Docker, `node e2e/dev/mailpit-lite.mjs --media <EGG_MEDIA_DIR>`
