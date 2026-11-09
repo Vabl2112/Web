@@ -1,7 +1,7 @@
 # End-to-end specs (Playwright)
 
 The specs in `e2e/` run the web client against a real backend: `auth`, `unsubscribe`, `catalog`, `cabinet`, `admin` (moderation, suspension,
-metrics, 403 for a buyer) and `messaging` (two browsers, polling). CI of this repository does not run them: it has no backend image yet
+metrics, 403 for a buyer) and `messaging` (two browsers, polling; a conversation with a deleted counterpart). CI of this repository does not run them: it has no backend image yet
 (P9.1). Run them on a machine that has the stack.
 
 ## The stack
@@ -18,5 +18,5 @@ metrics, 403 for a buyer) and `messaging` (two browsers, polling). CI of this re
 
 ## Run
 `pnpm e2e` (that is `playwright test`). `E2E_CHANNEL=chrome pnpm e2e` uses the installed Chrome (`msedge` works the same); without
-`E2E_CHANNEL` run `pnpm exec playwright install chromium` once. All 16 specs pass against the real backend (about 2 minutes). `E2E_BASE_URL`, `E2E_MAIL_URL`, `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD`
+`E2E_CHANNEL` run `pnpm exec playwright install chromium` once. All 18 specs pass against the real backend (about 1 minute). `E2E_BASE_URL`, `E2E_MAIL_URL`, `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD`
 change the defaults. The specs make their own people with unique addresses; the administrator is registered on the first run.
