@@ -12,11 +12,20 @@ export type Account = components["schemas"]["Account"]
 const SESSION_KEY = "session"
 
 /**
- * Forgets everything that was read for the person who was here: conversations, counters, the cabinet, the administration. Another person
- * may sign in on this device next, in the same tab and without a reload, and must never see a trace of the last one.
+ * What was read for everybody and says nothing about a person: the features of the backend, the categories, the cities found by a text.
+ * Every other key of the cache belongs to the person who was here (the session, conversations, counters, the cabinet, the administration).
+ */
+export function isPublicKey(key: unknown): boolean {
+  return typeof key === "string" && (key === "features" || key === "categories" || key.startsWith("cities-"))
+}
+
+/**
+ * Forgets everything that was read for the person who was here. Another person may sign in on this device next, in the same tab and
+ * without a reload, and must never see a trace of the last one. What is public stays: without it (the features of the backend) the page
+ * would not know what it may show until the next read, and nothing reads again by itself.
  */
 export function forgetEverything() {
-  return mutateAll(() => true, undefined, { revalidate: false })
+  return mutateAll((key) => !isPublicKey(key), undefined, { revalidate: false })
 }
 
 /** The signed-in account, or `null` for a guest: `401` from `GET /v1/me` is not an error, it is the answer "nobody". */
