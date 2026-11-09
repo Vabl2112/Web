@@ -3,8 +3,6 @@ import type { components } from "@/lib/api/schema"
 type Schemas = components["schemas"]
 export type InquiryMetrics = Schemas["InquiryMetrics"]
 export type ShowcaseMetrics = Schemas["ShowcaseMetrics"]
-export type InquiryBucket = Schemas["InquiryMetricsBucket"]
-export type ShowcaseBucket = Schemas["ShowcaseMetricsBucket"]
 
 const PERCENT = 100
 
