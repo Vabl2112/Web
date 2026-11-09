@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { expect, test } from "@playwright/test"
 import { Api, messagingIsOn, newPerson, prepareCreator, registerConfirmed, signIn } from "./support/world"
 
@@ -50,4 +51,29 @@ test("a buyer writes, the creator answers, and the answer shows up by itself (AC
 
   expect(sockets, "the web client keeps no long-lived connection (AC-26)").toEqual([])
   await Promise.all([buyerContext.close(), creatorContext.close()])
+})
+
+// Backend ADR 0016: nothing can be written to a conversation whose other side deleted the account. The history stays readable, the thread
+// shows a note instead of the box to write in, and the API refuses the message in any case.
+test("when the other side deleted the account the thread shows a note and no box to write in (ADR 0016)", async ({ page }) => {
+  test.skip(!(await messagingIsOn()), "messaging is off in this backend")
+  const creator = await prepareCreator("gone", { publish: true })
+  const buyer = newPerson("buyer")
+  await registerConfirmed(buyer)
+  const buyerApi = await Api.login(buyer.email, buyer.password)
+  const conversation = await buyerApi.ok<{ id: string }>(
+    buyerApi.post("/conversations", { creatorId: creator.creatorId, text: "Здравствуйте! Вы ещё работаете?", clientMessageId: randomUUID() }),
+  )
+
+  await creator.api.ok(creator.api.delete("/me"), 204)
+
+  await signIn(page, buyer, `/messages/${conversation.id}`)
+  await expect(page.getByText("Здравствуйте! Вы ещё работаете?")).toBeVisible()
+  await expect(page.getByText("Собеседник удалил аккаунт")).toBeVisible()
+  await expect(page.getByLabel("Напишите сообщение")).toHaveCount(0)
+
+  const refused = await buyerApi.post(`/conversations/${conversation.id}/messages`, { text: "Ещё раз", clientMessageId: randomUUID() })
+  expect(refused.status()).toBe(409)
+  expect((await refused.json()).code).toBe("COUNTERPART_DELETED")
+  await buyerApi.dispose()
 })

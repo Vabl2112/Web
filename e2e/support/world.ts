@@ -64,6 +64,10 @@ export class Api {
     return this.context.put(`/api/v1${path}`, { headers: this.headers(), data })
   }
 
+  delete(path: string): Promise<APIResponse> {
+    return this.context.delete(`/api/v1${path}`, { headers: this.headers() })
+  }
+
   /** A call that must succeed; gives its body. */
   async ok<T>(response: Promise<APIResponse>, expected: number | number[] = [200, 201]): Promise<T> {
     const answer = await response
