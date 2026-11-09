@@ -3,6 +3,11 @@ import { adminApi, ADMIN, Api, newPerson, prepareCreator, registerConfirmed, sig
 
 // AC-15, AC-16, AC-17 and AC-40 (б) in the part of the web client.
 test.describe("moderation", () => {
+  // The specs sign in as the administrator through the login page; on an empty database that account does not exist yet.
+  test.beforeAll(async () => {
+    await (await adminApi()).dispose()
+  })
+
   test("a rejection with a reason reaches the creator, and the showcase is public after the fix is approved (AC-15, AC-16)", async ({ page, browser }) => {
     const creator = await prepareCreator("reject", { submit: true })
     await signIn(page, ADMIN, "/admin/moderation")
