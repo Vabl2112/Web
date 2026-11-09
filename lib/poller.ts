@@ -41,6 +41,11 @@ export class Poller {
     this.clear()
   }
 
+  /** Asks for what is new right now (the caller knows that something is missing); a stopped or idle polling stays as it is. */
+  refresh() {
+    if (this.running && !this.idle && this.options.isVisible()) void this.pollNow()
+  }
+
   /** The person did something on the page: the idle clock starts over, and a stopped polling resumes with a round at once. */
   touch() {
     this.lastAction = this.options.now()

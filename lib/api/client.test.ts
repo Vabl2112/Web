@@ -65,6 +65,22 @@ describe("returnToOf", () => {
     expect(returnToOf("/\\evil.example", "")).toBe("/")
     expect(returnToOf("", "")).toBe("/")
   })
+
+  it("is not fooled by the characters that a browser drops from an address", () => {
+    expect(returnToOf("/\t/evil.example", "")).toBe("/")
+    expect(returnToOf("/\n/evil.example", "")).toBe("/")
+    expect(returnToOf("/\r/evil.example", "")).toBe("/")
+    expect(returnToOf("/", "?next=\t//evil.example")).toBe("/")
+    expect(returnToOf("/\u0000/evil.example", "")).toBe("/")
+  })
+
+  it("keeps an encoded tab, which is only a part of a path of this site", () => {
+    expect(returnToOf("/%09/evil.example", "")).toBe("/%09/evil.example")
+  })
+
+  it("gives back a plain path, with the dots resolved", () => {
+    expect(returnToOf("/cabinet/../messages", "")).toBe("/messages")
+  })
 })
 
 describe("createApiClient", () => {

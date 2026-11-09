@@ -24,6 +24,15 @@ export function lastSeqOf(messages: Message[]): number {
   return messages.reduce((last, message) => Math.max(last, message.seq), 0)
 }
 
+/**
+ * Where the cursor of the poll goes after the person's own message, stored under the number `sentSeq`, came back. Only the very next
+ * number moves it. Any other number means that a message of the other side was stored in between: the cursor stays, so that the next poll
+ * fetches it, and `gap` tells the caller to ask for it at once.
+ */
+export function cursorAfterSend(lastSeq: number, sentSeq: number): { cursor: number; gap: boolean } {
+  return sentSeq === lastSeq + 1 ? { cursor: sentSeq, gap: false } : { cursor: lastSeq, gap: true }
+}
+
 /** The newest message of the other side: everything up to it is read once the conversation is on the screen. */
 export function lastIncomingSeqOf(messages: Message[]): number {
   return messages.reduce((last, message) => (message.mine ? last : Math.max(last, message.seq)), 0)

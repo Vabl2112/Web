@@ -74,7 +74,7 @@ function ThreadBody({ conversationId }: { conversationId: string }) {
     () => api.GET("/v1/conversations/{id}", { params: { path: { id: conversationId } } }),
     { shouldRetryOnError: false, revalidateOnFocus: false },
   )
-  const { messages, status, paused, append } = useMessages(conversationId)
+  const { messages, status, paused, appendSent } = useMessages(conversationId)
   useMarkRead(conversationId, messages)
   useScrollToNewest(messages)
 
@@ -82,11 +82,11 @@ function ThreadBody({ conversationId }: { conversationId: string }) {
     const message = await unwrap(
       api.POST("/v1/conversations/{id}/messages", { params: { path: { id: conversationId } }, body: { text, clientMessageId } }),
     )
-    append([message])
+    appendSent(message)
     await refreshInbox()
   }
 
-  if (status === "missing" || error?.status === 404) {
+  if (status === "missing" || error?.status === 404 || error?.status === 400) {
     return <FormAlert message="Диалог не найден, или сообщения сейчас недоступны." />
   }
   if (error) return <FormAlert message={errorTextOf(error)} />

@@ -11,6 +11,7 @@ import {
   type Message,
   POLL_INTERVAL_MS,
   POLL_JITTER_MS,
+  cursorAfterSend,
   lastSeqOf,
   mergeMessages,
 } from "@/lib/messaging"
@@ -53,11 +54,25 @@ export function useMessages(conversationId: string) {
   const [status, setStatus] = useState<MessagesStatus>("loading")
   const [paused, setPaused] = useState(false)
   const lastSeq = useRef(0)
+  const askNow = useRef<() => void>(() => {})
 
+  /** What a poll brought: the server sends the numbers after `lastSeq` in order and without a gap, so the cursor goes to the last of them. */
   const append = useCallback((incoming: Message[]) => {
     if (incoming.length === 0) return
     lastSeq.current = Math.max(lastSeq.current, lastSeqOf(incoming))
     setMessages((current) => mergeMessages(current, incoming))
+  }, [])
+
+  /**
+   * The message that the person has just sent: shown at once. The cursor moves to it only when it is the very next number. Otherwise a
+   * message of the other side was stored in between, and moving the cursor past it would hide it in this tab for good: the cursor stays,
+   * and the next poll fetches both (the sent one is not doubled, the list is merged by number).
+   */
+  const appendSent = useCallback((sent: Message) => {
+    setMessages((current) => mergeMessages(current, [sent]))
+    const { cursor, gap } = cursorAfterSend(lastSeq.current, sent.seq)
+    lastSeq.current = cursor
+    if (gap) askNow.current()
   }, [])
 
   useEffect(() => {
@@ -76,6 +91,7 @@ export function useMessages(conversationId: string) {
       onIdle: () => setPaused(true),
       onResume: () => setPaused(false),
     })
+    askNow.current = () => poller.refresh()
 
     async function fetchNew() {
       for (let round = 0; round < MAX_ROUNDS; round += 1) {
@@ -83,7 +99,8 @@ export function useMessages(conversationId: string) {
           params: { path: { id: conversationId }, query: { after: lastSeq.current } },
         })
         if (cancelled) return
-        if (response.status === 404) {
+        // 404: no such conversation for this person; 400: the address is not even the id of a conversation. Neither will change by asking again.
+        if (response.status === 404 || response.status === 400) {
           missing = true
           poller.stop()
           return setStatus("missing")
@@ -109,6 +126,7 @@ export function useMessages(conversationId: string) {
 
     return () => {
       cancelled = true
+      askNow.current = () => {}
       poller.stop()
       document.removeEventListener("visibilitychange", onVisibility)
       window.removeEventListener("focus", onVisibility)
@@ -117,5 +135,5 @@ export function useMessages(conversationId: string) {
     }
   }, [conversationId, append])
 
-  return { messages, status, paused, append }
+  return { messages, status, paused, appendSent }
 }
