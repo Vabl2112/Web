@@ -38,6 +38,32 @@ describe("Poller", () => {
     expect(poll).toHaveBeenCalledTimes(3)
   })
 
+  it("asks at once when told that something is missing, and then goes on at its own pace", async () => {
+    const { poll, poller } = setup()
+    poller.start()
+    await vi.advanceTimersByTimeAsync(2000)
+
+    poller.refresh()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(poll).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(4999)
+    expect(poll).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(poll).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not ask when it is stopped, hidden or idle", async () => {
+    const stopped = setup()
+    stopped.poller.refresh()
+    expect(stopped.poll).not.toHaveBeenCalled()
+
+    const hidden = setup({ visible: false })
+    hidden.poller.start()
+    hidden.poller.refresh()
+    expect(hidden.poll).not.toHaveBeenCalled()
+  })
+
   it("keeps each delay within five seconds plus or minus one", async () => {
     const early = setup({ random: () => 0 })
     early.poller.start()

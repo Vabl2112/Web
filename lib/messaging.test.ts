@@ -5,6 +5,7 @@ import {
   conversationHref,
   conversationsHref,
   counterpartName,
+  cursorAfterSend,
   formatMessageTime,
   lastIncomingSeqOf,
   lastSeqOf,
@@ -36,6 +37,22 @@ describe("mergeMessages", () => {
     mergeMessages(current, [message(2)])
 
     expect(current).toHaveLength(1)
+  })
+})
+
+describe("cursorAfterSend", () => {
+  it("moves the cursor to the sent message when it is the very next number", () => {
+    expect(cursorAfterSend(5, 6)).toEqual({ cursor: 6, gap: false })
+  })
+
+  it("keeps the cursor when a message of the other side was stored in between, so the next poll fetches it", () => {
+    // the thread had 1..5, the creator wrote 6, then the buyer's own message came back as 7
+    expect(cursorAfterSend(5, 7)).toEqual({ cursor: 5, gap: true })
+    expect(cursorAfterSend(0, 3)).toEqual({ cursor: 0, gap: true })
+  })
+
+  it("keeps the cursor for a number that was already seen", () => {
+    expect(cursorAfterSend(5, 5)).toEqual({ cursor: 5, gap: true })
   })
 })
 

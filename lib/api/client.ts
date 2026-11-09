@@ -44,11 +44,18 @@ export function reactionTo(status: number, request: { method: string; path: stri
   return isProtectedPage(pathname) ? "login" : "offer-login"
 }
 
+/** A stand-in for the address of this site: only to see whether a path stays on it. */
+const THIS_SITE = "http://this-site.invalid"
+
 /** The address the person comes back to after signing in: a path of this site, never another site. */
 export function returnToOf(pathname: string, search = ""): string {
   const value = `${pathname}${search}`
-  // `//host` and `/\host` both mean another site to a browser.
-  return value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : "/"
+  // `//host` and `/\host` both mean another site to a browser, and so does `/` + tab + `/host`: the URL parser of a browser drops tabs and
+  // line breaks, which leaves `//host`. Control characters and backslashes are refused outright; what is left is resolved the way a
+  // browser does it, and only a path of this site (never another origin) is given back.
+  if (!value.startsWith("/") || /[\u0000-\u001f\u007f\\]/.test(value)) return "/"
+  const resolved = new URL(value, THIS_SITE)
+  return resolved.origin === THIS_SITE ? `${resolved.pathname}${resolved.search}` : "/"
 }
 
 export interface ClientHooks {
