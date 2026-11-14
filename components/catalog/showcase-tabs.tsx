@@ -44,7 +44,7 @@ export function ShowcaseTabs({ tabs }: { tabs: ShowcaseTab[] }) {
             <TabsTrigger
               key={tab.id}
               value={tab.id}
-              className="rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              className="rounded-none border-0 border-b-2 border-transparent px-4 py-2 text-sm font-medium data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
             >
               {tab.label}
             </TabsTrigger>
