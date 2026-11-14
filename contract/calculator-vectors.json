@@ -1,0 +1,37 @@
+{
+  "description": "Cases that the formula parsers of the backend (Formula.kt) and of the web (lib/calculator.ts) must agree on. ADR 0018.",
+  "valid": [
+    { "formula": "1 + 2 * 3", "values": {}, "value": 7 },
+    { "formula": "(1 + 2) * 3", "values": {}, "value": 9 },
+    { "formula": "10 / 4", "values": {}, "value": 2.5 },
+    { "formula": "8 / 2 / 2", "values": {}, "value": 2 },
+    { "formula": "8 - 2 - 2", "values": {}, "value": 4 },
+    { "formula": "2 - -2", "values": {}, "value": 4 },
+    { "formula": "2 * -3", "values": {}, "value": -6 },
+    { "formula": "-x + 5", "values": { "x": 2 }, "value": 3 },
+    { "formula": "--x", "values": { "x": 4 }, "value": 4 },
+    { "formula": "min(4, 2, 9)", "values": {}, "value": 2 },
+    { "formula": "max(3000, size * 500) * complexity", "values": { "size": 15, "complexity": 1.5 }, "value": 11250, "names": ["size", "complexity"] },
+    { "formula": "max(3000, size * 500) * complexity", "values": { "size": 5, "complexity": 2 }, "value": 6000 },
+    { "formula": "  size_cm*2+k1  ", "values": { "size_cm": 3, "k1": 0.5 }, "value": 6.5, "names": ["size_cm", "k1"] },
+    { "formula": "1 / 0", "values": {}, "value": "Infinity" }
+  ],
+  "invalid": [
+    { "formula": "", "error": "FORMULA_SYNTAX" },
+    { "formula": "   ", "error": "FORMULA_SYNTAX" },
+    { "formula": "1 +", "error": "FORMULA_SYNTAX" },
+    { "formula": "(1 + 2", "error": "FORMULA_SYNTAX" },
+    { "formula": "1 + 2)", "error": "FORMULA_SYNTAX" },
+    { "formula": "1 2", "error": "FORMULA_SYNTAX" },
+    { "formula": "2 ** 3", "error": "FORMULA_SYNTAX" },
+    { "formula": "5e3", "error": "FORMULA_SYNTAX" },
+    { "formula": "1.", "error": "FORMULA_SYNTAX" },
+    { "formula": ".5", "error": "FORMULA_SYNTAX" },
+    { "formula": "min(1)", "error": "FORMULA_SYNTAX" },
+    { "formula": "max(1, 2,)", "error": "FORMULA_SYNTAX" },
+    { "formula": "1 $ 2", "error": "FORMULA_SYNTAX" },
+    { "formula": "x = 1", "error": "FORMULA_SYNTAX" },
+    { "formula": "sqrt(4)", "error": "FORMULA_UNKNOWN_NAME" },
+    { "formula": "((((((((((((((((((1))))))))))))))))))", "error": "FORMULA_SYNTAX" }
+  ]
+}

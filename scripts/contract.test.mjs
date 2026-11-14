@@ -37,6 +37,7 @@ const versionOne = {
   "contract/openapi/egg-v1.yaml": "openapi: 3.0.3\npaths: {}\n",
   "contract/VERSION": "0.1.0\n",
   "docs/acceptance-criteria.md": "| AC-01 | text |\n",
+  "contract/calculator-vectors.json": "{}\n",
 }
 
 afterEach(() => {

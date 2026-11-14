@@ -1,5 +1,6 @@
-import { ConversationList } from "@/components/messaging/conversation-list"
+import { OpenChat } from "@/components/messaging/open-chat"
 
+/** The conversations are a window, not a page: the old address opens the window over the cabinet. */
 export default function CabinetMessagesPage() {
-  return <ConversationList role="CREATOR" />
+  return <OpenChat then="/cabinet" />
 }

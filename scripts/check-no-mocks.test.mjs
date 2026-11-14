@@ -28,7 +28,6 @@ describe("check-no-mocks patterns", () => {
   })
 
   test("the out-of-scope features trigger", () => {
-    expect(scanText("<CalculatorCard />")).toContain("AC-31 calculator")
     expect(scanText("<ReviewsCard />")).toContain("AC-31 reviews")
     expect(scanText("<ShoppingCart />")).toContain("AC-31 cart")
     expect(scanText("Записаться на сеанс")).toContain("AC-31 booking call to action")

@@ -2,6 +2,7 @@
 
 import { CreatorCard } from "@/components/catalog/creator-card"
 import { EmptyState, MoreButton } from "@/components/catalog/more-button"
+import { WriteButton } from "@/components/messaging/write-button"
 import { api } from "@/lib/api/client"
 import type { Page } from "@/lib/api/hooks"
 import { unwrap } from "@/lib/api/hooks"
@@ -16,10 +17,10 @@ export function CreatorList({ initial, query }: { initial: Page<CreatorSummary>;
   if (items.length === 0) return <EmptyState>Ничего не нашлось. Попробуйте другой запрос или категорию.</EmptyState>
   return (
     <div className="flex flex-col gap-6">
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="flex flex-col gap-4">
         {items.map((creator) => (
           <li key={creator.id}>
-            <CreatorCard creator={creator} />
+            <CreatorCard creator={creator} action={<WriteButton creatorId={creator.id} variant="outline" className="w-full sm:w-auto" />} />
           </li>
         ))}
       </ul>
