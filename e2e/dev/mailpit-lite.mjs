@@ -2,6 +2,8 @@
 // port 1025 and answers the two calls of the Mailpit API that e2e/support/mail.ts uses on port 8025:
 //   GET /api/v1/messages        -> { total, messages: [{ ID, Subject, To: [{ Address }], Created }] }
 //   GET /api/v1/message/{ID}    -> { ID, Subject, To, Text, HTML }
+// and a small web page for a person on the same port: GET / lists the mails (newest first), GET /view/{ID} shows one with its links,
+// so a registration can be confirmed by hand (the real Mailpit has such a page too).
 // Usage: node e2e/dev/mailpit-lite.mjs [--media <directory of EGG_MEDIA_DIR>]
 import { createServer as netServer } from "node:net"
 import { createServer as httpServer } from "node:http"
@@ -102,8 +104,38 @@ const json = (response, status, body) => {
   response.end(JSON.stringify(body))
 }
 
+const escapeHtml = (text) => text.replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character])
+const linkify = (text) => escapeHtml(text).replace(/https?:\/\/[^\s<]+/g, (link) => `<a href="${link}">${link}</a>`)
+
+const html = (response, title, body) => {
+  response.writeHead(200, { "content-type": "text/html; charset=utf-8" })
+  response.end(
+    `<!doctype html><meta charset="utf-8"><title>${escapeHtml(title)}</title>` +
+      "<style>body{font:15px system-ui;max-width:50rem;margin:2rem auto;padding:0 1rem}li{margin:.5rem 0}" +
+      "pre{white-space:pre-wrap;word-break:break-word;background:#f4f4f4;padding:1rem;border-radius:6px}</style>" +
+      `<h1>${escapeHtml(title)}</h1>${body}`,
+  )
+}
+
 httpServer((request, response) => {
   const url = new URL(request.url ?? "/", "http://localhost")
+  if (url.pathname === "/") {
+    const items = [...messages].reverse().map(
+      (message) =>
+        `<li><a href="/view/${message.ID}">${escapeHtml(message.Subject || "(no subject)")}</a> to ${escapeHtml(message.To.map((to) => to.Address).join(", "))}` +
+        ` <small>${escapeHtml(message.Created)}</small></li>`,
+    )
+    return html(response, "Mail of the site (a local stand-in for Mailpit)", items.length > 0 ? `<ul>${items.join("")}</ul>` : "<p>No mail yet.</p>")
+  }
+  const view = url.pathname.match(/^\/view\/([^/]+)$/)
+  if (view) {
+    const message = messages.find((candidate) => candidate.ID === view[1])
+    if (!message) {
+      response.writeHead(404)
+      return response.end()
+    }
+    return html(response, message.Subject, `<p><a href="/">all mail</a> | to ${escapeHtml(message.To.map((to) => to.Address).join(", "))}</p><pre>${linkify(message.Text)}</pre>`)
+  }
   if (url.pathname === "/api/v1/messages") {
     const list = messages.map(({ ID, Subject, To, Created }) => ({ ID, Subject, To, Created })).reverse()
     return json(response, 200, { total: list.length, messages: list })
@@ -115,7 +147,7 @@ httpServer((request, response) => {
   }
   response.writeHead(404)
   return response.end()
-}).listen(8025, () => console.log("mail api on http://localhost:8025/api/v1/"))
+}).listen(8025, () => console.log("mail page on http://localhost:8025/ and api on http://localhost:8025/api/v1/"))
 
 const mediaIndex = process.argv.indexOf("--media")
 if (mediaIndex >= 0) {
