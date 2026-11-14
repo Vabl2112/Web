@@ -711,7 +711,7 @@ export interface paths {
         put?: never;
         /**
          * Approve a showcase
-         * @description `PENDING_REVIEW` to `PUBLISHED`; sets `publishedAt` and queues the e-mail to the creator. The owner must be `ACTIVE` (`409 OWNER_NOT_ACTIVE`) and the showcase must carry no suspension reason (`409 SHOWCASE_SUSPENDED`); a showcase in another status answers `409 INVALID_SHOWCASE_STATE`.
+         * @description `PENDING_REVIEW` to `PUBLISHED`; sets `publishedAt` and queues the e-mail to the creator. The owner must be `ACTIVE` (`409 OWNER_NOT_ACTIVE`) and the showcase must carry no suspension reason (`409 SHOWCASE_SUSPENDED`); a showcase in another status answers `409 INVALID_SHOWCASE_STATE`. When rejected content leaves the showcase below the minimum for publication (a name, a category, one listing, three works), the answer is `409 SHOWCASE_MINIMUM_VIOLATION` and nothing changes: reject the showcase with a reason instead.
          */
         post: operations["approveCreator"];
         delete?: never;
