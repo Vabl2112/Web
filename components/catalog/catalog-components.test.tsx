@@ -22,12 +22,13 @@ describe("CreatorCard", () => {
     expect(html).toContain(`href="/creators/${creator.id}"`)
     expect(html).toContain("Анна Керамика")
     expect(html).toContain("Керамика")
+    expect(html).toContain("Профиль")
   })
 
   it("leaves out what the API did not send: the city, the tags, the avatar", () => {
     const html = renderToStaticMarkup(<CreatorCard creator={creator} />)
 
-    expect(html).not.toContain("·")
+    expect(html).not.toContain("Казань")
     expect(html).not.toContain("<ul")
     expect(html).not.toContain("<img")
   })
@@ -35,9 +36,15 @@ describe("CreatorCard", () => {
   it("adds the city, the tags and the avatar when there are some", () => {
     const html = renderToStaticMarkup(<CreatorCard creator={{ ...creator, city: KAZAN, tags: ["кружки", "ручная работа"], avatar: IMAGE }} />)
 
-    expect(html).toContain("Керамика · Казань")
+    expect(html).toContain("Казань")
     expect(html).toContain("кружки")
     expect(html).toContain("<img")
+  })
+
+  it("puts the given action beside the button to the showcase", () => {
+    const html = renderToStaticMarkup(<CreatorCard creator={creator} action={<button>Написать</button>} />)
+
+    expect(html).toContain("Написать")
   })
 })
 

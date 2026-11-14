@@ -3,7 +3,6 @@ import type { components } from "@/lib/api/schema"
 type Schemas = components["schemas"]
 export type Conversation = Schemas["Conversation"]
 export type Message = Schemas["Message"]
-export type ConversationRole = Schemas["ConversationRole"]
 export type Participant = Schemas["Participant"]
 
 /** The rhythm of the web client (AC-22, AC-23): an open conversation every 5 s ± 1 s, the badge every 30 s, a stop after 15 min idle. */
@@ -45,15 +44,6 @@ export function withOlder(first: Conversation[], older: Conversation[]): Convers
 /** The newest message of the other side: everything up to it is read once the conversation is on the screen. */
 export function lastIncomingSeqOf(messages: Message[]): number {
   return messages.reduce((last, message) => (message.mine ? last : Math.max(last, message.seq)), 0)
-}
-
-/** A buyer reads on `/messages`, a creator in the cabinet (AC-23). */
-export function conversationsHref(role: ConversationRole): string {
-  return role === "BUYER" ? "/messages" : "/cabinet/messages"
-}
-
-export function conversationHref(role: ConversationRole, id: string): string {
-  return `${conversationsHref(role)}/${id}`
 }
 
 export function counterpartName(participant: Participant): string {

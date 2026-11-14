@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
+import { Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { type CatalogQuery, type Category, LISTING_TYPES, LISTING_TYPE_LABELS, catalogHref } from "@/lib/catalog"
@@ -96,7 +97,18 @@ export function SearchForm({ action, query, placeholder }: { action: string; que
       {query.type ? <input type="hidden" name="type" value={query.type} /> : null}
       {query.cityId ? <input type="hidden" name="cityId" value={query.cityId} /> : null}
       {query.cityId && query.cityName ? <input type="hidden" name="cityName" value={query.cityName} /> : null}
-      <Input type="search" name="q" defaultValue={query.q ?? ""} placeholder={placeholder} maxLength={100} aria-label={placeholder} />
+      <div className="relative flex-1">
+        <Search aria-hidden className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          name="q"
+          defaultValue={query.q ?? ""}
+          placeholder={placeholder}
+          maxLength={100}
+          aria-label={placeholder}
+          className="pl-10"
+        />
+      </div>
       <Button type="submit">Найти</Button>
     </form>
   )

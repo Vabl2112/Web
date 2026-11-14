@@ -10,20 +10,25 @@ export function ListingCard({ listing }: { listing: ListingSummary }) {
   return (
     <Link
       href={`/listings/${listing.id}`}
-      className="flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all hover:shadow-lg"
     >
-      <div className="aspect-4/3 bg-muted">
+      <div className="aspect-square overflow-hidden bg-muted">
         {listing.photo ? (
-          <EggImage image={listing.photo} alt={listing.title} sizes="(min-width: 1024px) 25vw, 50vw" className="size-full object-cover" />
+          <EggImage
+            image={listing.photo}
+            alt={listing.title}
+            sizes="(min-width: 1024px) 25vw, 50vw"
+            className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
         ) : null}
       </div>
       <div className="flex flex-col gap-1 p-4">
         <Badge variant="outline" className="w-fit">
           {LISTING_TYPE_LABELS[listing.type]}
         </Badge>
-        <h3 className="font-semibold">{listing.title}</h3>
+        <h3 className="line-clamp-2 font-semibold text-foreground">{listing.title}</h3>
         <p className="text-sm text-muted-foreground">{listing.creator.displayName}</p>
-        <p className="font-medium">{formatPriceFrom(listing.priceFromMinor, listing.currency)}</p>
+        <p className="mt-1 text-xl font-bold text-foreground">{formatPriceFrom(listing.priceFromMinor, listing.currency)}</p>
         {place ? <p className="text-xs text-muted-foreground">{place}</p> : null}
       </div>
     </Link>

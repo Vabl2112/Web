@@ -3,8 +3,6 @@ import {
   type Conversation,
   type Message,
   MAX_MESSAGE_LENGTH,
-  conversationHref,
-  conversationsHref,
   counterpartName,
   cursorAfterSend,
   formatMessageTime,
@@ -86,15 +84,6 @@ describe("lastSeqOf and lastIncomingSeqOf", () => {
   it("are 0 for no messages and for no messages of the other side", () => {
     expect(lastSeqOf([])).toBe(0)
     expect(lastIncomingSeqOf([message(1, true)])).toBe(0)
-  })
-})
-
-describe("conversationsHref and conversationHref", () => {
-  it("lead a buyer to /messages and a creator to the cabinet (AC-23)", () => {
-    expect(conversationsHref("BUYER")).toBe("/messages")
-    expect(conversationsHref("CREATOR")).toBe("/cabinet/messages")
-    expect(conversationHref("BUYER", "abc")).toBe("/messages/abc")
-    expect(conversationHref("CREATOR", "abc")).toBe("/cabinet/messages/abc")
   })
 })
 

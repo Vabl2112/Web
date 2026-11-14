@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { ApiNotices } from '@/components/api-notices'
+import { ChatProvider } from '@/components/messaging/chat-provider'
 import './globals.css'
 
 const geist = Geist({ subsets: ["latin"] });
@@ -43,7 +44,7 @@ export default async function RootLayout({
   return (
     <html lang="ru" className={`${geist.className} ${geistMono.className}`}>
       <body className="font-sans antialiased">
-        {children}
+        <ChatProvider>{children}</ChatProvider>
         <ApiNotices />
         {await analytics()}
       </body>

@@ -17,6 +17,7 @@ import {
 import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { initialsOf } from "@/lib/auth/initials"
 import { useSession } from "@/lib/auth/session"
+import { useChat } from "@/components/messaging/chat-provider"
 import { MessagesLink } from "@/components/messaging/messages-link"
 import { useFeatures } from "@/lib/features"
 
@@ -26,11 +27,17 @@ const navLinks = [
   { href: "/gallery", label: "Работы" },
 ]
 
+/** An item of the account menu; one without an address opens the chat window instead of a page. */
+interface AccountLink {
+  href?: string
+  label: string
+}
+
 /** The links of the account menu: the cabinet for everybody, the administration only for an administrator (the API checks it again). */
-function accountLinks(isAdmin: boolean, isCreator: boolean, messaging: boolean) {
+function accountLinks(isAdmin: boolean, isCreator: boolean, messaging: boolean): AccountLink[] {
   return [
     { href: "/cabinet", label: isCreator ? "Кабинет" : "Стать создателем" },
-    ...(messaging ? [{ href: isCreator ? "/cabinet/messages" : "/messages", label: "Сообщения" }] : []),
+    ...(messaging ? [{ label: "Сообщения" }] : []),
     ...(isAdmin ? [{ href: "/admin/moderation", label: "Модерация" }, { href: "/admin/metrics", label: "Метрики" }] : []),
   ]
 }
@@ -53,6 +60,7 @@ export function Header() {
   const router = useRouter()
   const { account, isLoading, isAdmin, isCreator, signOut } = useSession()
   const { messaging } = useFeatures()
+  const chat = useChat()
   const links = accountLinks(isAdmin, isCreator, messaging)
 
   const leave = async () => {
@@ -87,7 +95,8 @@ export function Header() {
           {account !== null ? (
             <>
               <MessagesLink />
-              <DropdownMenu>
+              {/* Not modal: a window that opens from an item of a modal menu would leave the page unclickable after it closes. */}
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="hidden items-center gap-2 px-2 sm:flex" aria-label="Меню аккаунта">
                     <Avatar className="size-9">
@@ -100,8 +109,8 @@ export function Header() {
                   <DropdownMenuLabel className="truncate">{account.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {links.map((link) => (
-                    <DropdownMenuItem key={link.href} asChild>
-                      <Link href={link.href}>{link.label}</Link>
+                    <DropdownMenuItem key={link.label} asChild={link.href !== undefined} onSelect={link.href ? undefined : () => chat.open()}>
+                      {link.href ? <Link href={link.href}>{link.label}</Link> : link.label}
                     </DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
@@ -148,14 +157,24 @@ export function Header() {
 
                 {/* Mobile Navigation */}
                 <nav className="flex flex-col p-4">
-                  {[...navLinks, ...(account !== null ? links : [])].map((link) => (
-                    <SheetClose key={link.href} asChild>
-                      <Link
-                        href={link.href}
-                        className="flex items-center py-3 text-base font-medium text-foreground transition-colors hover:text-foreground/70"
-                      >
-                        {link.label}
-                      </Link>
+                  {[...navLinks, ...(account !== null ? links : [])].map((link: AccountLink) => (
+                    <SheetClose key={link.label} asChild>
+                      {link.href ? (
+                        <Link
+                          href={link.href}
+                          className="flex items-center py-3 text-base font-medium text-foreground transition-colors hover:text-foreground/70"
+                        >
+                          {link.label}
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => chat.open()}
+                          className="flex items-center py-3 text-left text-base font-medium text-foreground transition-colors hover:text-foreground/70"
+                        >
+                          {link.label}
+                        </button>
+                      )}
                     </SheetClose>
                   ))}
                 </nav>
