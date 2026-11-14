@@ -12,14 +12,16 @@ interface MessageComposerProps {
   onSend(text: string, clientMessageId: string): Promise<void>
   placeholder?: string
   submitLabel?: string
+  /** The text the box starts with, for a message that is prepared (the summary of the calculator). */
+  initialText?: string
 }
 
 /**
  * The box to write a message. The `clientMessageId` is made when the person presses send and kept until the send succeeds: a retry after
  * a failure carries the same id, so a message that did arrive is never doubled; a changed text is a new message with a new id.
  */
-export function MessageComposer({ onSend, placeholder = "Напишите сообщение", submitLabel = "Отправить" }: MessageComposerProps) {
-  const [text, setText] = useState("")
+export function MessageComposer({ onSend, placeholder = "Напишите сообщение", submitLabel = "Отправить", initialText = "" }: MessageComposerProps) {
+  const [text, setText] = useState(initialText)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const pendingId = useRef<string | null>(null)

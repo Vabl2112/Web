@@ -14,6 +14,7 @@ export const contractFiles = [
   ["contract/openapi/egg-v1.yaml", "egg-v1.yaml"],
   ["contract/VERSION", "VERSION"],
   ["docs/acceptance-criteria.md", "acceptance-criteria.md"],
+  ["contract/calculator-vectors.json", "calculator-vectors.json"],
 ]
 
 export const schemaPath = "lib/api/schema.d.ts"
