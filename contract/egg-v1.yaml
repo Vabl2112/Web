@@ -835,6 +835,76 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /v1/me/calculator:
+    get:
+      tags: [catalog]
+      operationId: getMyCalculator
+      summary: Get the price calculator of my showcase
+      description: The calculator that the visitors of the showcase use, as the creator set it. `404` while there is none (or no showcase).
+      x-egg-auth: creator
+      responses:
+        '200':
+          description: The calculator.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Calculator'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [catalog]
+      operationId: saveMyCalculator
+      summary: Set the price calculator of my showcase
+      description: |
+        Creates the calculator or replaces it as a whole. Every problem is reported at once, field by field: the formula must read (`FORMULA_SYNTAX`),
+        use only the names of the parameters (`FORMULA_UNKNOWN_NAME`) and give a finite price that is not negative at the ends of every
+        range (`FORMULA_RESULT`). On a published showcase the change is public at once and the showcase enters the "changed" queue of
+        moderation (OD-10). `404` without a showcase.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Calculator'
+      responses:
+        '200':
+          description: The calculator is stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Calculator'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [catalog]
+      operationId: deleteMyCalculator
+      summary: Remove the price calculator of my showcase
+      description: Removing a calculator that is not there is not an error. `404` without a showcase.
+      x-egg-auth: creator
+      parameters:
+        - $ref: '#/components/parameters/EggClient'
+      responses:
+        '204':
+          description: There is no calculator now.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /v1/me/listings:
     post:
       tags: [catalog]
@@ -2670,6 +2740,8 @@ components:
           $ref: '#/components/schemas/City'
         avatar:
           $ref: '#/components/schemas/ImageRef'
+        calculator:
+          $ref: '#/components/schemas/Calculator'
         publishedAt:
           type: string
           format: date-time
@@ -2827,10 +2899,19 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/PortfolioItem'
+    GalleryAuthor:
+      type: object
+      description: Who made a work of the feed, for the tile. The avatar is omitted when the showcase has none.
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+        avatar:
+          $ref: '#/components/schemas/ImageRef'
     GalleryItem:
       type: object
       description: A work in the feed. The size of the tile comes from `image.width` and `image.height`.
-      required: [id, creatorId, category, image]
+      required: [id, creatorId, author, category, image]
       properties:
         id:
           type: string
@@ -2838,6 +2919,8 @@ components:
         creatorId:
           type: string
           format: uuid
+        author:
+          $ref: '#/components/schemas/GalleryAuthor'
         title:
           type: string
           maxLength: 120
@@ -3364,6 +3447,113 @@ components:
         email: anna@example.org
         name: Anna
         status: ACTIVE
+    CalculatorParameterKind:
+      type: string
+      enum: [SLIDER, CHOICE]
+    CalculatorOption:
+      type: object
+      required: [label, value]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 40
+        value:
+          type: number
+          format: double
+          description: What goes into the formula when the visitor chooses this option.
+    CalculatorParameter:
+      type: object
+      description: |
+        One question of the calculator; its `id` is its name in the formula. A `SLIDER` is a number from `min` to `max` in steps of `step`
+        (shown with `unit`), `defaultValue` is where it stands at first, and the number goes into the formula as it is. A `CHOICE` is one of
+        `options` (two to twelve); the `value` of the chosen one goes into the formula, and `defaultOption` is the place (from 0) of the
+        option that is chosen at first. The fields of the other kind must be absent.
+      required: [id, label, kind]
+      properties:
+        id:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,31}$'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 60
+        kind:
+          $ref: '#/components/schemas/CalculatorParameterKind'
+        min:
+          type: number
+          format: double
+        max:
+          type: number
+          format: double
+        step:
+          type: number
+          format: double
+        defaultValue:
+          type: number
+          format: double
+        unit:
+          type: string
+          maxLength: 10
+        options:
+          type: array
+          maxItems: 12
+          items:
+            $ref: '#/components/schemas/CalculatorOption'
+        defaultOption:
+          type: integer
+          minimum: 0
+    Calculator:
+      type: object
+      description: |
+        A price calculator that a creator puts on the showcase: questions for the visitor and a formula that turns the answers into an
+        approximate price in whole units of `currency` (rounded half up). The formula has numbers, the names of the parameters, `+ - * /`,
+        brackets, a minus before a value and `min(a, b, ...)` / `max(a, b, ...)` of two to eight arguments. It is never run as code.
+      required: [title, currency, formula, parameters]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 80
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          example: RUB
+        formula:
+          type: string
+          minLength: 1
+          maxLength: 300
+          example: max(3000, size * 500) * complexity
+        parameters:
+          type: array
+          minItems: 1
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/CalculatorParameter'
+      example:
+        title: Calculate the price
+        currency: RUB
+        formula: max(3000, size * 500) * complexity
+        parameters:
+          - id: size
+            label: Size
+            kind: SLIDER
+            min: 5
+            max: 30
+            step: 1
+            defaultValue: 15
+            unit: cm
+          - id: complexity
+            label: Complexity
+            kind: CHOICE
+            options:
+              - label: Outline
+                value: 1
+              - label: Shadows
+                value: 1.5
+              - label: Colour
+                value: 2
+            defaultOption: 1
     AdminCreatorView:
       type: object
       description: Everything a moderator needs to decide, including content that waits for approval.
@@ -3371,6 +3561,8 @@ components:
       properties:
         profile:
           $ref: '#/components/schemas/MyCreatorProfile'
+        calculator:
+          $ref: '#/components/schemas/Calculator'
         owner:
           $ref: '#/components/schemas/AdminUserRef'
         listings:

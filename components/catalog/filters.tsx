@@ -5,14 +5,22 @@ import { Input } from "@/components/ui/input"
 import { type CatalogQuery, type Category, LISTING_TYPES, LISTING_TYPE_LABELS, catalogHref } from "@/lib/catalog"
 import { cn } from "@/lib/utils"
 
-export function Chip({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
+/** A filter as a pill: the main ones are dark when chosen, the `sub` ones (subcategories) are amber, as on the board of pictures. */
+export function Chip({ href, active, sub = false, children }: { href: string; active: boolean; sub?: boolean; children: ReactNode }) {
   return (
     <Link
       href={href}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "rounded-full border px-4 py-1.5 text-sm transition-colors",
-        active ? "border-foreground bg-foreground text-background" : "border-border hover:bg-muted",
+        "rounded-full text-sm font-medium transition-all",
+        sub ? "px-4 py-2" : "px-5 py-2.5",
+        sub
+          ? active
+            ? "bg-amber-500 text-white"
+            : "bg-muted text-muted-foreground hover:bg-muted/80"
+          : active
+            ? "bg-foreground text-background"
+            : "border border-border bg-card text-foreground hover:bg-muted",
       )}
     >
       {children}
@@ -50,11 +58,11 @@ export function CategoryChips({ categories, basePath, query, withSubcategories =
       </nav>
       {withSubcategories && active !== undefined && active.children.length > 0 ? (
         <nav aria-label="Подкатегории" className="flex flex-wrap gap-2">
-          <Chip href={catalogHref(basePath, { ...query, subcategoryId: undefined })} active={query.subcategoryId === undefined}>
+          <Chip sub href={catalogHref(basePath, { ...query, subcategoryId: undefined })} active={query.subcategoryId === undefined}>
             Все подкатегории
           </Chip>
           {active.children.map((child) => (
-            <Chip key={child.id} href={catalogHref(basePath, { ...query, subcategoryId: child.id })} active={child.id === query.subcategoryId}>
+            <Chip sub key={child.id} href={catalogHref(basePath, { ...query, subcategoryId: child.id })} active={child.id === query.subcategoryId}>
               {child.name}
             </Chip>
           ))}

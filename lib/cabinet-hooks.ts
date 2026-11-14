@@ -41,3 +41,11 @@ export function useMyPortfolio() {
 export function refreshCabinet() {
   return mutate((key) => typeof key === "string" && key.startsWith("my-"))
 }
+
+export const CALCULATOR_KEY = "my-calculator"
+
+/** The price calculator of the showcase. `404` is not a failure: there is none yet (`none`). */
+export function useMyCalculator() {
+  const { data, error, isLoading, mutate: change } = useGet(CALCULATOR_KEY, () => api.GET("/v1/me/calculator"), QUIET)
+  return { calculator: data, isLoading, change, none: error?.status === 404, error: error?.status === 404 ? undefined : error }
+}

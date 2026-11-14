@@ -13,6 +13,7 @@ const ITEMS = [
   { href: "/cabinet/profile", label: "Профиль", exact: false },
   { href: "/cabinet/listings", label: "Позиции", exact: false },
   { href: "/cabinet/portfolio", label: "Портфолио", exact: false },
+  { href: "/cabinet/calculator", label: "Калькулятор", exact: false },
 ]
 
 const MESSAGES_ITEM = { href: "/cabinet/messages", label: "Сообщения", exact: false }

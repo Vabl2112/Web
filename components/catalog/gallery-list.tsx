@@ -15,7 +15,15 @@ export function GalleryList({ initial, query }: { initial: Page<GalleryItem>; qu
   if (items.length === 0) return <EmptyState>В этой категории пока нет работ.</EmptyState>
   return (
     <div className="flex flex-col gap-6">
-      <MasonryGrid tiles={items.map((item) => ({ id: item.id, image: item.image, title: item.title, href: `/creators/${item.creatorId}` }))} />
+      <MasonryGrid
+        tiles={items.map((item) => ({
+          id: item.id,
+          image: item.image,
+          title: item.title,
+          author: { name: item.author.displayName, avatar: item.author.avatar },
+          href: `/creators/${item.creatorId}`,
+        }))}
+      />
       <MoreButton hasMore={hasMore} loading={loading} failure={failure} onMore={loadMore} />
     </div>
   )

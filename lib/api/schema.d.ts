@@ -478,6 +478,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/calculator": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the price calculator of my showcase
+         * @description The calculator that the visitors of the showcase use, as the creator set it. `404` while there is none (or no showcase).
+         */
+        get: operations["getMyCalculator"];
+        /**
+         * Set the price calculator of my showcase
+         * @description Creates the calculator or replaces it as a whole. Every problem is reported at once, field by field: the formula must read (`FORMULA_SYNTAX`),
+         *     use only the names of the parameters (`FORMULA_UNKNOWN_NAME`) and give a finite price that is not negative at the ends of every
+         *     range (`FORMULA_RESULT`). On a published showcase the change is public at once and the showcase enters the "changed" queue of
+         *     moderation (OD-10). `404` without a showcase.
+         */
+        put: operations["saveMyCalculator"];
+        post?: never;
+        /**
+         * Remove the price calculator of my showcase
+         * @description Removing a calculator that is not there is not an error. `404` without a showcase.
+         */
+        delete: operations["deleteMyCalculator"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/listings": {
         parameters: {
             query?: never;
@@ -1339,6 +1370,7 @@ export interface components {
             tags: string[];
             city?: components["schemas"]["City"];
             avatar?: components["schemas"]["ImageRef"];
+            calculator?: components["schemas"]["Calculator"];
             /** Format: date-time */
             publishedAt: string;
         };
@@ -1426,12 +1458,18 @@ export interface components {
         PortfolioItemPage: components["schemas"]["CursorPage"] & {
             items: components["schemas"]["PortfolioItem"][];
         };
+        /** @description Who made a work of the feed, for the tile. The avatar is omitted when the showcase has none. */
+        GalleryAuthor: {
+            displayName: string;
+            avatar?: components["schemas"]["ImageRef"];
+        };
         /** @description A work in the feed. The size of the tile comes from `image.width` and `image.height`. */
         GalleryItem: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             creatorId: string;
+            author: components["schemas"]["GalleryAuthor"];
             title?: string;
             category: components["schemas"]["CategoryRef"];
             image: components["schemas"]["ImageRef"];
@@ -1860,9 +1898,92 @@ export interface components {
             name: string;
             status: components["schemas"]["AccountStatus"];
         };
+        /** @enum {string} */
+        CalculatorParameterKind: "SLIDER" | "CHOICE";
+        CalculatorOption: {
+            label: string;
+            /**
+             * Format: double
+             * @description What goes into the formula when the visitor chooses this option.
+             */
+            value: number;
+        };
+        /**
+         * @description One question of the calculator; its `id` is its name in the formula. A `SLIDER` is a number from `min` to `max` in steps of `step`
+         *     (shown with `unit`), `defaultValue` is where it stands at first, and the number goes into the formula as it is. A `CHOICE` is one of
+         *     `options` (two to twelve); the `value` of the chosen one goes into the formula, and `defaultOption` is the place (from 0) of the
+         *     option that is chosen at first. The fields of the other kind must be absent.
+         */
+        CalculatorParameter: {
+            id: string;
+            label: string;
+            kind: components["schemas"]["CalculatorParameterKind"];
+            /** Format: double */
+            min?: number;
+            /** Format: double */
+            max?: number;
+            /** Format: double */
+            step?: number;
+            /** Format: double */
+            defaultValue?: number;
+            unit?: string;
+            options?: components["schemas"]["CalculatorOption"][];
+            defaultOption?: number;
+        };
+        /**
+         * @description A price calculator that a creator puts on the showcase: questions for the visitor and a formula that turns the answers into an
+         *     approximate price in whole units of `currency` (rounded half up). The formula has numbers, the names of the parameters, `+ - * /`,
+         *     brackets, a minus before a value and `min(a, b, ...)` / `max(a, b, ...)` of two to eight arguments. It is never run as code.
+         * @example {
+         *       "title": "Calculate the price",
+         *       "currency": "RUB",
+         *       "formula": "max(3000, size * 500) * complexity",
+         *       "parameters": [
+         *         {
+         *           "id": "size",
+         *           "label": "Size",
+         *           "kind": "SLIDER",
+         *           "min": 5,
+         *           "max": 30,
+         *           "step": 1,
+         *           "defaultValue": 15,
+         *           "unit": "cm"
+         *         },
+         *         {
+         *           "id": "complexity",
+         *           "label": "Complexity",
+         *           "kind": "CHOICE",
+         *           "options": [
+         *             {
+         *               "label": "Outline",
+         *               "value": 1
+         *             },
+         *             {
+         *               "label": "Shadows",
+         *               "value": 1.5
+         *             },
+         *             {
+         *               "label": "Colour",
+         *               "value": 2
+         *             }
+         *           ],
+         *           "defaultOption": 1
+         *         }
+         *       ]
+         *     }
+         */
+        Calculator: {
+            title: string;
+            /** @example RUB */
+            currency: string;
+            /** @example max(3000, size * 500) * complexity */
+            formula: string;
+            parameters: components["schemas"]["CalculatorParameter"][];
+        };
         /** @description Everything a moderator needs to decide, including content that waits for approval. */
         AdminCreatorView: {
             profile: components["schemas"]["MyCreatorProfile"];
+            calculator?: components["schemas"]["Calculator"];
             owner: components["schemas"]["AdminUserRef"];
             listings: components["schemas"]["MyListing"][];
             portfolioItems: components["schemas"]["MyPortfolioItem"][];
@@ -3283,6 +3404,84 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getMyCalculator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The calculator. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Calculator"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveMyCalculator: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client build, `web/<N>` where N is the Unix time (seconds) of the web commit, or `android/<version>`. Required on every non-GET request except one-click unsubscribe. */
+                "X-EGG-Client": components["parameters"]["EggClient"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Calculator"];
+            };
+        };
+        responses: {
+            /** @description The calculator is stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Calculator"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMyCalculator: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client build, `web/<N>` where N is the Unix time (seconds) of the web commit, or `android/<version>`. Required on every non-GET request except one-click unsubscribe. */
+                "X-EGG-Client": components["parameters"]["EggClient"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description There is no calculator now. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listMyListings: {

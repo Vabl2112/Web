@@ -13,7 +13,6 @@ export const rules = [
   { id: "AC-30 tattoo master", pattern: /(?<![\p{L}])тату/iu },
   { id: "AC-30 stock photo host", pattern: /images\.unsplash\.com/u },
   { id: "AC-30 mock name", pattern: /Алексей/u },
-  { id: "AC-31 calculator", pattern: /CalculatorCard/u },
   { id: "AC-31 reviews", pattern: /ReviewsCard/u },
   { id: "AC-31 cart", pattern: /ShoppingCart/u },
   { id: "AC-31 verified badge", pattern: /(?<![\p{L}])Проверен(?![\p{L}])/u },
