@@ -136,7 +136,13 @@ export function CalculatorView({ calculator, creatorId }: CalculatorViewProps) {
             <p className="mt-1 text-sm text-muted-foreground">Примерная стоимость</p>
           </div>
           {creatorId ? (
-            <WriteButton creatorId={creatorId} prominent label="Написать с этим расчётом" prefill={summaryOf(calculator, answers)} />
+            <WriteButton
+              creatorId={creatorId}
+              prominent
+              className="w-full px-4"
+              label="Написать с этим расчётом"
+              prefill={summaryOf(calculator, answers)}
+            />
           ) : null}
         </div>
       </div>

@@ -27,6 +27,8 @@ interface WriteButtonProps {
   prefill?: string
   /** The words on the button; "Написать" by default. */
   label?: string
+  /** More classes for the button, for the place it stands in (for example the full width of a card). */
+  className?: string
 }
 
 const PROMINENT = "px-8 py-6 text-base font-semibold uppercase tracking-wide"
@@ -35,7 +37,7 @@ const PROMINENT = "px-8 py-6 text-base font-semibold uppercase tracking-wide"
  * "Написать" on a showcase or a listing. A guest is sent to the login page and comes back to this page with the form open; a signed-in
  * person writes in a dialog and lands in the new conversation. Nothing is shown while messaging is off (AC-45).
  */
-export function WriteButton({ creatorId, listing, prominent = false, prefill, label = "Написать" }: WriteButtonProps) {
+export function WriteButton({ creatorId, listing, prominent = false, prefill, label = "Написать", className }: WriteButtonProps) {
   const { messaging } = useFeatures()
   const { account, isLoading } = useSession()
   const router = useRouter()
@@ -49,7 +51,7 @@ export function WriteButton({ creatorId, listing, prominent = false, prefill, la
   if (account === null) {
     const back = encodeURIComponent(`${pathname}?${WRITE_PARAM}=1`)
     return (
-      <Button asChild className={cn("w-fit", prominent && PROMINENT)}>
+      <Button asChild className={cn("w-fit", prominent && PROMINENT, className)}>
         <Link href={`/login?returnTo=${back}`}>{label}</Link>
       </Button>
     )
@@ -67,7 +69,7 @@ export function WriteButton({ creatorId, listing, prominent = false, prefill, la
 
   return (
     <>
-      <Button className={cn("w-fit", prominent && PROMINENT)} onClick={() => setOpened(true)}>
+      <Button className={cn("w-fit", prominent && PROMINENT, className)} onClick={() => setOpened(true)}>
         {label}
       </Button>
       <Dialog
