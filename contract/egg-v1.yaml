@@ -2310,6 +2310,8 @@ components:
           - id: 0192f1c6-4444-7000-8000-000000000004
             creatorId: 0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11
             title: Blue glaze series
+            author:
+              displayName: Anna Ceramics
             category:
               id: 0192f1c6-1111-7000-8000-000000000001
               slug: ceramics
