@@ -8,7 +8,7 @@ import { serverApi } from "@/lib/api/server"
 import { catalogHref, parseCatalogQuery } from "@/lib/catalog"
 import type { SearchParams } from "@/lib/search-params"
 
-export const metadata: Metadata = { title: "Создатели — EGG" }
+export const metadata: Metadata = { title: "Мастера — EGG" }
 
 export default async function CreatorsPage({ searchParams }: { searchParams: SearchParams }) {
   const query = parseCatalogQuery(await searchParams)
@@ -17,7 +17,7 @@ export default async function CreatorsPage({ searchParams }: { searchParams: Sea
     unwrap(serverApi.GET("/v1/creators", { params: { query: { categoryId: query.categoryId, cityId: query.cityId, q: query.q } } })),
   ])
   return (
-    <PageShell title="Создатели" description="Витрины людей, которые делают вещи и оказывают услуги.">
+    <PageShell title="Мастера" description="Найдите своего мастера: смотрите работы и пишите напрямую.">
       <SearchForm action="/creators" query={query} placeholder="Имя, занятие или тег" />
       <CategoryChips categories={categories.items} basePath="/creators" query={query} />
       <CityFilter basePath="/creators" query={query} />
