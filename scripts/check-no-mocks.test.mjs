@@ -22,9 +22,8 @@ describe("check-no-mocks patterns", () => {
     expect(scanText("Алексей")).toContain("AC-30 mock name")
   })
 
-  test("the verified badge triggers, the word 'checked' does not", () => {
-    expect(scanText("<Badge>Проверен</Badge>")).toContain("AC-31 verified badge")
-    expect(scanText("Проверено")).not.toContain("AC-31 verified badge")
+  test("the mark 'Проверен' is real now (AC-48): it is no finding", () => {
+    expect(scanText("<Badge>Проверен</Badge>")).toEqual([])
   })
 
   test("the out-of-scope features trigger", () => {

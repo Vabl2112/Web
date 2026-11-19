@@ -1,12 +1,15 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
-import { MapPin } from "lucide-react"
+import { Briefcase, Clock, MapPin } from "lucide-react"
+import { RatingCompact } from "@/components/catalog/rating-stars"
+import { VerifiedBadge } from "@/components/catalog/verified-badge"
 import { EggImage } from "@/components/egg-image"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { initialsOf } from "@/lib/auth/initials"
 import type { CreatorSummary } from "@/lib/catalog"
+import { experienceText, worksCountText } from "@/lib/format"
 
 const MAX_TAGS = 4
 
@@ -35,17 +38,37 @@ export function CreatorCard({ creator, action }: CreatorCardProps) {
           </Avatar>
         </Link>
         <div className="flex min-w-0 flex-1 flex-col text-center sm:text-left">
-          <h3 className="text-lg font-semibold text-foreground sm:text-xl">
-            <Link href={href} className="transition-colors hover:text-foreground/80">
-              {creator.displayName}
-            </Link>
-          </h3>
+          <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:gap-3">
+            <h3 className="text-lg font-semibold text-foreground sm:text-xl">
+              <Link href={href} className="transition-colors hover:text-foreground/80">
+                {creator.displayName}
+              </Link>
+            </h3>
+            {creator.verified ? <VerifiedBadge /> : null}
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">{creator.category.name}</p>
+          <RatingCompact rating={creator.rating} className="mt-2 justify-center sm:justify-start" />
           {creator.city ? (
             <p className="mt-2 flex items-center justify-center gap-1 text-sm text-muted-foreground sm:justify-start">
               <MapPin aria-hidden className="size-4" />
               {creator.city.name}
             </p>
+          ) : null}
+          {creator.experienceSinceYear !== undefined || creator.worksCount > 0 ? (
+            <ul className="mt-3 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground sm:justify-start">
+              {creator.experienceSinceYear !== undefined ? (
+                <li className="flex items-center gap-1">
+                  <Clock aria-hidden className="size-4" />
+                  {experienceText(creator.experienceSinceYear)}
+                </li>
+              ) : null}
+              {creator.worksCount > 0 ? (
+                <li className="flex items-center gap-1">
+                  <Briefcase aria-hidden className="size-4" />
+                  {worksCountText(creator.worksCount)}
+                </li>
+              ) : null}
+            </ul>
           ) : null}
           {creator.tags.length > 0 ? (
             <ul className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">

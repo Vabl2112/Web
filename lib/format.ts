@@ -20,3 +20,31 @@ export function formatPrice(priceMinor: number | null | undefined, currency = "R
 export function formatPriceFrom(priceFromMinor: number | null | undefined, currency = "RUB"): string {
   return priceFromMinor === null || priceFromMinor === undefined ? BY_AGREEMENT : `от ${formatPrice(priceFromMinor, currency)}`
 }
+
+/** The Russian form of a noun for a number: `forms` are for 1, 2, and 5 (`1 год`, `2 года`, `5 лет`). */
+export function pluralRu(count: number, forms: readonly [string, string, string]): string {
+  const lastTwo = Math.abs(count) % 100
+  const last = lastTwo % 10
+  if (lastTwo >= 11 && lastTwo <= 14) return forms[2]
+  if (last === 1) return forms[0]
+  return last >= 2 && last <= 4 ? forms[1] : forms[2]
+}
+
+export const feedbackCountText = (count: number) => `${count} ${pluralRu(count, ["отзыв", "отзыва", "отзывов"])}`
+export const worksCountText = (count: number) => `${count} ${pluralRu(count, ["работа", "работы", "работ"])}`
+
+/** The years of experience from the year the creator started; a year in the future (a clock that is off) is no years. */
+export function experienceYears(sinceYear: number, now: Date = new Date()): number {
+  return Math.max(0, now.getFullYear() - sinceYear)
+}
+
+/** "Опыт 8 лет"; less than a year is "Опыт меньше года". */
+export function experienceText(sinceYear: number, now: Date = new Date()): string {
+  const years = experienceYears(sinceYear, now)
+  return years === 0 ? "Опыт меньше года" : `Опыт ${years} ${pluralRu(years, ["год", "года", "лет"])}`
+}
+
+/** The average of the stars as people write it in Russian: one decimal place with a comma. */
+export function formatAverage(average: number): string {
+  return average.toLocaleString("ru-RU", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+}

@@ -13,7 +13,14 @@ const CERAMICS = { id: "0192f1c6-1111-7000-8000-000000000001", slug: "ceramics",
 const KAZAN = { id: "0192f1c6-2222-7000-8000-000000000002", name: "Казань" }
 const IMAGE = { width: 1280, height: 960, variants: [{ width: 640, url: "https://media.example.org/m/640.webp" }] }
 
-const creator: CreatorSummary = { id: "0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11", displayName: "Анна Керамика", category: CERAMICS, tags: [] }
+const creator: CreatorSummary = {
+  id: "0192f1c6-2a7e-7d3a-9d6c-5b1f3a0c4e11",
+  displayName: "Анна Керамика",
+  category: CERAMICS,
+  tags: [],
+  verified: false,
+  worksCount: 0,
+}
 
 describe("CreatorCard", () => {
   it("links to the showcase and shows the name and the category", () => {
@@ -39,6 +46,27 @@ describe("CreatorCard", () => {
     expect(html).toContain("Казань")
     expect(html).toContain("кружки")
     expect(html).toContain("<img")
+  })
+
+  it("shows the mark, the stars, the experience and the works when the API sent them (AC-47, AC-48)", () => {
+    const html = renderToStaticMarkup(
+      <CreatorCard creator={{ ...creator, verified: true, rating: { average: 4.8, count: 12 }, experienceSinceYear: 2016, worksCount: 24 }} />,
+    )
+
+    expect(html).toContain("Проверен")
+    expect(html).toContain("4,8")
+    expect(html).toContain("(12 отзывов)")
+    expect(html).toContain("Опыт")
+    expect(html).toContain("24 работы")
+  })
+
+  it("shows none of them when the API sent none: no mark, no stars, no empty counts", () => {
+    const html = renderToStaticMarkup(<CreatorCard creator={creator} />)
+
+    expect(html).not.toContain("Проверен")
+    expect(html).not.toContain("отзыв")
+    expect(html).not.toContain("Опыт")
+    expect(html).not.toContain("0 работ")
   })
 
   it("puts the given action beside the button to the showcase", () => {
@@ -79,6 +107,8 @@ describe("ListingCard", () => {
 
 const profile: CreatorProfile = { ...creator, publishedAt: "2026-10-25T09:30:00Z" }
 
+const RATED: CreatorProfile = { ...profile, verified: true, rating: { average: 5, count: 1 }, worksCount: 3, experienceSinceYear: 2020 }
+
 describe("CreatorProfileHeader", () => {
   it("has no empty sections for a showcase without a bio, a city and tags (AC-05)", () => {
     const html = renderToStaticMarkup(<CreatorProfileHeader creator={profile} />)
@@ -96,6 +126,24 @@ describe("CreatorProfileHeader", () => {
     expect(html).toContain("Посуда на гончарном круге.")
     expect(html).toContain("Казань")
     expect(html).toContain("кружки")
+  })
+
+  it("shows the stars, the mark, the experience and the works from the API (AC-47, AC-48)", () => {
+    const html = renderToStaticMarkup(<CreatorProfileHeader creator={RATED} />)
+
+    expect(html).toContain("Проверен")
+    expect(html).toContain("5,0")
+    expect(html).toContain("(1 отзыв)")
+    expect(html).toContain("Опыт")
+    expect(html).toContain("3 работы")
+  })
+
+  it("says there is no feedback yet, and shows no mark and no counts, when the API sent none", () => {
+    const html = renderToStaticMarkup(<CreatorProfileHeader creator={profile} />)
+
+    expect(html).toContain("Пока нет отзывов")
+    expect(html).not.toContain("Проверен")
+    expect(html).not.toContain("Опыт")
   })
 })
 

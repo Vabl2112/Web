@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { MyCreatorProfile, MyListing } from "./cabinet"
-import { EMPTY_LISTING, listingRequest, listingSchema, listingValuesOf, portfolioSchema, profileRequest, profileSchema, profileValuesOf } from "./cabinet-schemas"
+import { EMPTY_LISTING, experienceYearProblem, listingRequest, listingSchema, listingValuesOf, portfolioSchema, profileRequest, profileSchema, profileValuesOf } from "./cabinet-schemas"
 
 const CATEGORY = "0192f1c6-1111-7000-8000-000000000001"
 
@@ -30,9 +30,9 @@ describe("profileSchema and profileRequest", () => {
   })
 
   it("fills the form from the showcase", () => {
-    const profile = { id: "x", status: "DRAFT", suspensionReasons: [], tags: ["а", "б"], changedSinceReview: false, createdAt: "", displayName: "Анна" } as MyCreatorProfile
+    const profile = { id: "x", status: "DRAFT", suspensionReasons: [], tags: ["а", "б"], changedSinceReview: false, createdAt: "", displayName: "Анна", verified: false } as MyCreatorProfile
 
-    expect(profileValuesOf(profile)).toEqual({ displayName: "Анна", bio: "", categoryId: "", tags: "а, б" })
+    expect(profileValuesOf(profile)).toEqual({ displayName: "Анна", bio: "", categoryId: "", tags: "а, б", experienceSinceYear: "" })
   })
 })
 
@@ -128,5 +128,29 @@ describe("portfolioSchema", () => {
   it("wants a category, the title is optional", () => {
     expect(portfolioSchema.safeParse({ title: "", categoryId: CATEGORY, subcategoryId: "" }).success).toBe(true)
     expect(portfolioSchema.safeParse({ title: "Серия", categoryId: "", subcategoryId: "" }).success).toBe(false)
+  })
+})
+
+describe("the year the creator started", () => {
+  const now = new Date(2026, 10, 19)
+
+  it("is optional, and a whole year from 1950 to this one", () => {
+    expect(experienceYearProblem("", now)).toBeNull()
+    expect(experienceYearProblem(" 2016 ", now)).toBeNull()
+    expect(experienceYearProblem("1950", now)).toBeNull()
+    expect(experienceYearProblem("2026", now)).toBeNull()
+    expect(experienceYearProblem("1949", now)).toBe("Год от 1950 до 2026.")
+    expect(experienceYearProblem("2027", now)).toBe("Год от 1950 до 2026.")
+    expect(experienceYearProblem("две тысячи", now)).not.toBeNull()
+    expect(experienceYearProblem("2016.5", now)).not.toBeNull()
+  })
+
+  it("goes into the request as a number, and an empty field leaves it out (the API clears an omitted year)", () => {
+    const values = { displayName: "", bio: "", categoryId: "", tags: "" }
+
+    expect(profileRequest({ ...values, experienceSinceYear: "2016" })).toMatchObject({ experienceSinceYear: 2016 })
+    expect(profileRequest({ ...values, experienceSinceYear: "  " })).not.toHaveProperty("experienceSinceYear")
+    expect(profileSchema.safeParse({ ...values, experienceSinceYear: "1900" }).success).toBe(false)
+    expect(profileValuesOf({ id: "x", status: "DRAFT", suspensionReasons: [], tags: [], changedSinceReview: false, createdAt: "", verified: false, experienceSinceYear: 2016 } as MyCreatorProfile).experienceSinceYear).toBe("2016")
   })
 })

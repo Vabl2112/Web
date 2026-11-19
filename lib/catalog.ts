@@ -11,6 +11,10 @@ export type ListingSummary = Schemas["ListingSummary"]
 export type Listing = Schemas["Listing"]
 export type PortfolioItem = Schemas["PortfolioItem"]
 export type GalleryItem = Schemas["GalleryItem"]
+export type Rating = Schemas["Rating"]
+export type Feedback = Schemas["Feedback"]
+export type MyFeedback = Schemas["MyFeedback"]
+export type CreatorSort = Schemas["CreatorSort"]
 
 export const LISTING_TYPES: readonly ListingType[] = ["SERVICE", "READY_PRODUCT", "MADE_TO_ORDER"]
 
@@ -29,6 +33,8 @@ export interface CatalogQuery {
   /** The name of the chosen city, only to show it in the chip of the filter (the API filters by `cityId`). */
   cityName?: string
   q?: string
+  /** The order of the list of masters; absent is the newest first. */
+  sort?: CreatorSort
 }
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -56,13 +62,14 @@ export function parseCatalogQuery(params: Record<string, string | string[] | und
   }
   const q = firstOf(params.q)?.trim().slice(0, MAX_SEARCH_LENGTH)
   if (q) query.q = q
+  if (firstOf(params.sort) === "RATING") query.sort = "RATING"
   return query
 }
 
 /** The address of a catalog page with the given filters; absent and empty ones are left out, so the same filters make the same address. */
 export function catalogHref(path: string, query: CatalogQuery): string {
   const search = new URLSearchParams()
-  for (const key of ["categoryId", "subcategoryId", "type", "cityId", "cityName", "q"] as const) {
+  for (const key of ["categoryId", "subcategoryId", "type", "cityId", "cityName", "q", "sort"] as const) {
     const value = query[key]
     if (value !== undefined && value !== "") search.set(key, value)
   }

@@ -285,7 +285,7 @@ export interface paths {
         };
         /**
          * List published showcases
-         * @description Only showcases in status `PUBLISHED` without suspension reasons. Newest first (`publishedAt` descending, then id).
+         * @description Only showcases in status `PUBLISHED` without suspension reasons. Newest first (`publishedAt` descending, then id) unless `sort` says otherwise.
          *     Without `cityId` every city and showcases without a city are returned; with `cityId` only that city.
          *     `q` searches name, description and tags with Russian morphology and tolerates typos.
          */
@@ -347,6 +347,73 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/creators/{id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the feedback of a showcase
+         * @description Newest first. An unknown, unpublished or suspended showcase answers `404`.
+         */
+        get: operations["listCreatorFeedback"];
+        put?: never;
+        /**
+         * Leave feedback on a showcase
+         * @description The stars (1 to 5) and an optional text. One feedback per person and showcase: a second one answers `409 FEEDBACK_EXISTS` (delete the first and write again).
+         *     Allowed only for a person who has written to this creator and got an answer, that is a conversation with this showcase in which the creator has replied; for the owner of the showcase and for a person without such a conversation the answer is `403 FEEDBACK_NOT_ALLOWED`.
+         *     An unknown or unpublished showcase answers `404`; an unconfirmed e-mail `403 EMAIL_NOT_VERIFIED`. The average and the count on the showcase change in the same transaction.
+         */
+        post: operations["leaveCreatorFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/creators/{id}/feedback/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My feedback on a showcase, and whether I may leave one
+         * @description `feedback` is the one the person has left. `canLeave` tells whether the form should be shown; when it is `false` and there is no feedback, `reason` says why:
+         *     `OWN_SHOWCASE` or `NO_CONTACT` (no conversation with this creator in which the creator has replied).
+         */
+        get: operations["getMyCreatorFeedback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/feedback/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete feedback
+         * @description The author deletes their own feedback; an administrator deletes any (written to the audit log). The average and the count change in the same transaction. Somebody else's feedback answers `404` to a person who is not an administrator.
+         */
+        delete: operations["deleteFeedback"];
         options?: never;
         head?: never;
         patch?: never;
@@ -805,6 +872,26 @@ export interface paths {
          * @description Removes the reason `ADMIN`; the showcase is public again only when no other reason (`ACCOUNT_SUSPENDED`) remains and its status is `PUBLISHED`.
          */
         post: operations["unsuspendCreator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/creators/{id}/verified": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set or remove the mark "verified" of a showcase
+         * @description The mark `verified` is shown on the cards and on the showcase. Only an administrator sets or removes it, in any status; the change is written to the audit log. Repeating the same value is not an error.
+         */
+        put: operations["setCreatorVerified"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1330,7 +1417,69 @@ export interface components {
             id: string;
             displayName: string;
         };
-        /** @description A showcase card in lists. */
+        /**
+         * @default NEWEST
+         * @enum {string}
+         */
+        CreatorSort: "NEWEST" | "RATING";
+        /** @description The stars of a showcase. Omitted while the showcase has no feedback. */
+        Rating: {
+            /**
+             * Format: double
+             * @description The average of the stars, rounded to one decimal place.
+             */
+            average: number;
+            /** @description The number of feedbacks. */
+            count: number;
+        };
+        VerifiedRequest: {
+            verified: boolean;
+        };
+        /**
+         * @example {
+         *       "rating": 5,
+         *       "text": "Fast answer, the mug is as in the photo."
+         *     }
+         */
+        FeedbackInput: {
+            rating: number;
+            /** @description Optional; a text that is only white space is the same as none. */
+            text?: string;
+        };
+        /**
+         * @example {
+         *       "id": "0192f1c6-5555-7000-8000-000000000005",
+         *       "rating": 5,
+         *       "text": "Fast answer, the mug is as in the photo.",
+         *       "authorName": "Oleg",
+         *       "createdAt": "2026-11-18T10:00:00Z"
+         *     }
+         */
+        Feedback: {
+            /** Format: uuid */
+            id: string;
+            rating: number;
+            text?: string;
+            /** @description The name of the author as the account has it; "deleted user" does not occur, as the feedback of a deleted account is deleted with it. */
+            authorName: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        FeedbackPage: components["schemas"]["CursorPage"] & {
+            items: components["schemas"]["Feedback"][];
+        };
+        /**
+         * @description Why a person may not leave feedback, when there is none of theirs yet (`NO_CONTACT` means no conversation with this creator in which the creator has replied).
+         * @enum {string}
+         */
+        MyFeedbackReason: "OWN_SHOWCASE" | "NO_CONTACT";
+        MyFeedback: {
+            /** @description Whether the person may leave feedback now (no feedback of theirs yet, a conversation with an answer of the creator, not their own showcase). */
+            canLeave: boolean;
+            reason?: components["schemas"]["MyFeedbackReason"];
+            feedback?: components["schemas"]["Feedback"];
+        };
+        /** @description A showcase card in lists. `rating` is omitted while there is no feedback, `experienceSinceYear` when the creator did not give it. */
         CreatorSummary: {
             /** Format: uuid */
             id: string;
@@ -1339,6 +1488,13 @@ export interface components {
             city?: components["schemas"]["City"];
             avatar?: components["schemas"]["ImageRef"];
             tags: string[];
+            /** @description The mark that an administrator sets. */
+            verified: boolean;
+            rating?: components["schemas"]["Rating"];
+            /** @description The number of approved works of the showcase. */
+            worksCount: number;
+            /** @description The year the creator started; the web shows the years of experience. */
+            experienceSinceYear?: number;
         };
         CreatorSummaryPage: components["schemas"]["CursorPage"] & {
             items: components["schemas"]["CreatorSummary"][];
@@ -1358,6 +1514,13 @@ export interface components {
          *         "mugs",
          *         "handmade"
          *       ],
+         *       "verified": true,
+         *       "rating": {
+         *         "average": 4.8,
+         *         "count": 12
+         *       },
+         *       "worksCount": 24,
+         *       "experienceSinceYear": 2016,
          *       "publishedAt": "2026-10-25T09:30:00Z"
          *     }
          */
@@ -1371,6 +1534,13 @@ export interface components {
             city?: components["schemas"]["City"];
             avatar?: components["schemas"]["ImageRef"];
             calculator?: components["schemas"]["Calculator"];
+            /** @description The mark that an administrator sets. */
+            verified: boolean;
+            rating?: components["schemas"]["Rating"];
+            /** @description The number of approved works of the showcase. */
+            worksCount: number;
+            /** @description The year the creator started; the web shows the years of experience. */
+            experienceSinceYear?: number;
             /** Format: date-time */
             publishedAt: string;
         };
@@ -1552,7 +1722,8 @@ export interface components {
          *       "tags": [
          *         "mugs",
          *         "handmade"
-         *       ]
+         *       ],
+         *       "experienceSinceYear": 2016
          *     }
          */
         CreatorProfileInput: {
@@ -1568,6 +1739,8 @@ export interface components {
              * @description Media id from `uploadMedia`; omitted keeps the current avatar.
              */
             avatarMediaId?: string;
+            /** @description The year the creator started, up to the current year; omitted clears it (a year in the future answers `400`). */
+            experienceSinceYear?: number;
         };
         /**
          * @description The showcase as its creator sees it. Optional values are omitted when absent.
@@ -1586,12 +1759,16 @@ export interface components {
          *         "handmade"
          *       ],
          *       "changedSinceReview": false,
+         *       "verified": false,
          *       "createdAt": "2026-10-26T12:00:00Z"
          *     }
          */
         MyCreatorProfile: {
             /** Format: uuid */
             id: string;
+            /** @description The mark that an administrator sets; the creator cannot change it. */
+            verified: boolean;
+            experienceSinceYear?: number;
             status: components["schemas"]["ShowcaseStatus"];
             suspensionReasons: components["schemas"]["SuspensionReason"][];
             displayName?: string;
@@ -2521,6 +2698,11 @@ export interface components {
         CityId: string;
         /** @description Free-text search with Russian morphology; tolerates typos. */
         SearchQuery: string;
+        /**
+         * @description The order of the list of showcases. `NEWEST` (the default) is the order of publication, newest first.
+         *     `RATING` puts the best rated first (the average of the stars, then the number of feedbacks, then the newest); showcases without feedback come last.
+         */
+        CreatorSort: components["schemas"]["CreatorSort"];
         /** @description Showcase id. */
         CreatorId: string;
         /** @description Listing id. */
@@ -3012,6 +3194,11 @@ export interface operations {
                 cityId?: components["parameters"]["CityId"];
                 /** @description Free-text search with Russian morphology; tolerates typos. */
                 q?: components["parameters"]["SearchQuery"];
+                /**
+                 * @description The order of the list of showcases. `NEWEST` (the default) is the order of publication, newest first.
+                 *     `RATING` puts the best rated first (the average of the stars, then the number of feedbacks, then the newest); showcases without feedback come last.
+                 */
+                sort?: components["parameters"]["CreatorSort"];
                 /** @description Opaque cursor from `nextCursor` of the previous page. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Page size. */
@@ -3129,6 +3316,154 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["TooManyRequests"];
+        };
+    };
+    listCreatorFeedback: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `nextCursor` of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                /** @description Showcase id. */
+                id: components["parameters"]["CreatorId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of feedback. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    leaveCreatorFeedback: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client build, `web/<N>` where N is the Unix time (seconds) of the web commit, or `android/<version>`. Required on every non-GET request except one-click unsubscribe. */
+                "X-EGG-Client": components["parameters"]["EggClient"];
+            };
+            path: {
+                /** @description Showcase id. */
+                id: components["parameters"]["CreatorId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackInput"];
+            };
+        };
+        responses: {
+            /** @description The feedback is stored. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Feedback"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The e-mail is not confirmed, or the person may not leave feedback here. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "title": "Feedback is not allowed",
+                     *       "status": 403,
+                     *       "code": "FEEDBACK_NOT_ALLOWED"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The person has left feedback on this showcase already. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "title": "Feedback exists",
+                     *       "status": 409,
+                     *       "code": "FEEDBACK_EXISTS"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getMyCreatorFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Showcase id. */
+                id: components["parameters"]["CreatorId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The state of the person with this showcase. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyFeedback"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteFeedback: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client build, `web/<N>` where N is the Unix time (seconds) of the web commit, or `android/<version>`. Required on every non-GET request except one-click unsubscribe. */
+                "X-EGG-Client": components["parameters"]["EggClient"];
+            };
+            path: {
+                /** @description Feedback id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listListings: {
@@ -4168,6 +4503,40 @@ export interface operations {
                     "application/json": components["schemas"]["MyCreatorProfile"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setCreatorVerified: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client build, `web/<N>` where N is the Unix time (seconds) of the web commit, or `android/<version>`. Required on every non-GET request except one-click unsubscribe. */
+                "X-EGG-Client": components["parameters"]["EggClient"];
+            };
+            path: {
+                /** @description Showcase id. */
+                id: components["parameters"]["CreatorId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifiedRequest"];
+            };
+        };
+        responses: {
+            /** @description The showcase with the new mark. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyCreatorProfile"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

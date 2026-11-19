@@ -2,6 +2,7 @@ import { cache } from "react"
 import type { Metadata } from "next"
 import { CalculatorView } from "@/components/catalog/calculator-card"
 import { CreatorProfileHeader } from "@/components/catalog/creator-profile-header"
+import { FeedbackTab } from "@/components/catalog/feedback-tab"
 import { PortfolioList } from "@/components/catalog/gallery-list"
 import { ListingList } from "@/components/catalog/listing-list"
 import { ShowcaseTabs, type ShowcaseTab } from "@/components/catalog/showcase-tabs"
@@ -33,6 +34,8 @@ export default async function CreatorPage({ params }: Props) {
   if (portfolio.items.length > 0) tabs.push({ id: "portfolio", label: "Портфолио", content: <PortfolioList initial={portfolio} creatorId={id} /> })
   if (listings.items.length > 0) tabs.push({ id: "listings", label: "Позиции", content: <ListingList initial={listings} creatorId={id} /> })
   if (creator.calculator) tabs.push({ id: "calculator", label: "Калькулятор", content: <CalculatorView calculator={creator.calculator} creatorId={id} /> })
+  // The tab of feedback is always there: it holds the form for the people who may leave one (AC-47).
+  tabs.push({ id: "feedback", label: creator.rating ? `Отзывы (${creator.rating.count})` : "Отзывы", content: <FeedbackTab creatorId={id} /> })
   return (
     <div className="min-h-screen bg-background">
       <Header />

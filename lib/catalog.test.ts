@@ -25,6 +25,12 @@ describe("parseCatalogQuery", () => {
     expect(parseCatalogQuery({ cityName: "Казань" })).toEqual({})
   })
 
+  it("reads the order of the masters: only RATING is one, the newest first needs no word", () => {
+    expect(parseCatalogQuery({ sort: "RATING" })).toEqual({ sort: "RATING" })
+    expect(parseCatalogQuery({ sort: "NEWEST" })).toEqual({})
+    expect(parseCatalogQuery({ sort: "best" })).toEqual({})
+  })
+
   it("keeps a subcategory only together with its category", () => {
     expect(parseCatalogQuery({ subcategoryId: SUBCATEGORY })).toEqual({})
   })
