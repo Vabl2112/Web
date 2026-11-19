@@ -88,6 +88,7 @@ const profile = (extra: Partial<MyCreatorProfile> = {}): MyCreatorProfile => ({
   suspensionReasons: [],
   tags: [],
   changedSinceReview: false,
+  verified: false,
   createdAt: "2026-11-01T00:00:00Z",
   ...extra,
 })
@@ -164,5 +165,13 @@ describe("previewOf", () => {
     )
 
     expect(preview).toMatchObject({ displayName: "Анна", bio: "О себе", avatar: approved })
+  })
+
+  it("carries the mark, the year and the number of approved works to the header", () => {
+    const preview = previewOf(profile({ verified: true, experienceSinceYear: 2016 }), 3)
+
+    expect(preview).toMatchObject({ verified: true, experienceSinceYear: 2016, worksCount: 3 })
+    expect(previewOf(profile())).toMatchObject({ verified: false, worksCount: 0 })
+    expect(previewOf(profile())).not.toHaveProperty("experienceSinceYear")
   })
 })

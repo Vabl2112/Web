@@ -84,7 +84,7 @@ function ProfileFormBody({ profile }: { profile: MyCreatorProfile }) {
   }
 
   const fail = (error: unknown) => {
-    const shown = error instanceof ApiError && applyFieldErrors(error, setError, { displayName: "displayName", bio: "bio", categoryId: "categoryId" })
+    const shown = error instanceof ApiError && applyFieldErrors(error, setError, { displayName: "displayName", bio: "bio", categoryId: "categoryId", experienceSinceYear: "experienceSinceYear" })
     setFailure(shown ? null : errorTextOf(error))
   }
 
@@ -135,6 +135,13 @@ function ProfileFormBody({ profile }: { profile: MyCreatorProfile }) {
         <TextAreaField label="О себе" rows={6} error={errors.bio?.message} {...register("bio")} />
         <TextField label="Теги" hint="Через запятую, не больше 10: например, «кружки, ручная работа»." error={errors.tags?.message} {...register("tags")} />
         <CityField value={city} onChange={setCity} />
+        <TextField
+          label="Год начала работы"
+          hint="Необязательно. По нему на витрине покажут опыт, например «Опыт 8 лет»."
+          inputMode="numeric"
+          error={errors.experienceSinceYear?.message}
+          {...register("experienceSinceYear")}
+        />
         <Button type="submit" className="w-fit" disabled={isSubmitting}>
           {isSubmitting ? "Сохраняем…" : "Сохранить"}
         </Button>

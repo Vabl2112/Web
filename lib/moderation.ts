@@ -82,8 +82,11 @@ export function reasonProblem(text: string): string | null {
 }
 
 /** The showcase as a visitor would see it, to put the preview on the components of the public page. The new avatar is not in it: it has its own block. */
-export function previewOf(profile: MyCreatorProfile): CreatorProfile {
+export function previewOf(profile: MyCreatorProfile, worksCount = 0): CreatorProfile {
   return {
+    verified: profile.verified,
+    worksCount,
+    ...(profile.experienceSinceYear !== undefined ? { experienceSinceYear: profile.experienceSinceYear } : {}),
     id: profile.id,
     displayName: profile.displayName ?? "Без названия",
     category: profile.category ?? { id: "", slug: "", name: "Без категории" },

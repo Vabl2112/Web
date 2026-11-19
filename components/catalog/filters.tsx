@@ -89,6 +89,20 @@ export function TypeTabs({ basePath, query }: { basePath: string; query: Catalog
   )
 }
 
+/** The order of the list of masters as links: the newest first (the default) or the best rated first (AC-49). */
+export function SortTabs({ basePath, query }: { basePath: string; query: CatalogQuery }) {
+  return (
+    <nav aria-label="Порядок мастеров" className="flex flex-wrap items-center gap-2">
+      <Chip href={catalogHref(basePath, { ...query, sort: undefined })} active={query.sort === undefined}>
+        Сначала новые
+      </Chip>
+      <Chip href={catalogHref(basePath, { ...query, sort: "RATING" })} active={query.sort === "RATING"}>
+        По рейтингу
+      </Chip>
+    </nav>
+  )
+}
+
 /** The search as a plain form that sends `GET`: it works without scripts and keeps the other filters in hidden fields. */
 export function SearchForm({ action, query, placeholder }: { action: string; query: CatalogQuery; placeholder: string }) {
   return (
@@ -97,6 +111,7 @@ export function SearchForm({ action, query, placeholder }: { action: string; que
       {query.type ? <input type="hidden" name="type" value={query.type} /> : null}
       {query.cityId ? <input type="hidden" name="cityId" value={query.cityId} /> : null}
       {query.cityId && query.cityName ? <input type="hidden" name="cityName" value={query.cityName} /> : null}
+      {query.sort ? <input type="hidden" name="sort" value={query.sort} /> : null}
       <div className="relative flex-1">
         <Search aria-hidden className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input

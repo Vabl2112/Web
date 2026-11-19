@@ -13,9 +13,10 @@ export const rules = [
   { id: "AC-30 tattoo master", pattern: /(?<![\p{L}])тату/iu },
   { id: "AC-30 stock photo host", pattern: /images\.unsplash\.com/u },
   { id: "AC-30 mock name", pattern: /Алексей/u },
+  // The stars, the feedback and the mark "Проверен" are real now (AC-47, AC-48), shown from the API; what stays out is the mock
+  // component of the prototype, the cart and the booking button.
   { id: "AC-31 reviews", pattern: /ReviewsCard/u },
   { id: "AC-31 cart", pattern: /ShoppingCart/u },
-  { id: "AC-31 verified badge", pattern: /(?<![\p{L}])Проверен(?![\p{L}])/u },
   { id: "AC-31 booking call to action", pattern: /Записаться/u },
   { id: "AC-26 WebSocket", pattern: /\bWebSocket\b/u },
   { id: "AC-26 EventSource", pattern: /\bEventSource\b/u },

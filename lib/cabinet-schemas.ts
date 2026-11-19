@@ -4,6 +4,17 @@ import { type CreatorProfileInput, type ListingInput, type MyListing, minorOfRub
 const MAX_TAGS = 10
 const MAX_TAG_LENGTH = 30
 const MAX_LEAD_DAYS = 365
+/** The earliest year the contract takes for the start of a creator's work. */
+export const FIRST_YEAR = 1950
+
+/** Empty is fine (the year is optional); otherwise a whole year from 1950 to this one. */
+export function experienceYearProblem(text: string, now: Date = new Date()): string | null {
+  const trimmed = text.trim()
+  if (trimmed === "") return null
+  const year = Number(trimmed)
+  const last = now.getFullYear()
+  return Number.isInteger(year) && year >= FIRST_YEAR && year <= last ? null : `Год от ${FIRST_YEAR} до ${last}.`
+}
 
 /** Every field of the showcase is optional on the API, so a draft can be saved step by step; the checklist says what is still missing. */
 export const profileSchema = z.object({
@@ -14,6 +25,14 @@ export const profileSchema = z.object({
     .string()
     .refine((text) => tagsOfText(text).length <= MAX_TAGS, `Не больше ${MAX_TAGS} тегов.`)
     .refine((text) => tagsOfText(text).every((tag) => tag.length <= MAX_TAG_LENGTH), `Тег не длиннее ${MAX_TAG_LENGTH} символов.`),
+  /** The year the creator started, as the person types it; the site shows the years of experience from it. */
+  experienceSinceYear: z
+    .string()
+    .superRefine((text, context) => {
+      const problem = experienceYearProblem(text)
+      if (problem) context.addIssue({ code: "custom", message: problem })
+    })
+    .optional(),
 })
 
 export type ProfileValues = z.input<typeof profileSchema>
@@ -24,6 +43,7 @@ export function profileValuesOf(profile: MyCreatorProfile): ProfileValues {
     bio: profile.bio ?? "",
     categoryId: profile.category?.id ?? "",
     tags: textOfTags(profile.tags),
+    experienceSinceYear: profile.experienceSinceYear === undefined ? "" : String(profile.experienceSinceYear),
   }
 }
 
@@ -33,6 +53,8 @@ export function profileRequest(values: ProfileValues, cityId?: string): CreatorP
   if (values.displayName.trim() !== "") request.displayName = values.displayName.trim()
   if (values.categoryId !== "") request.categoryId = values.categoryId
   if (cityId) request.cityId = cityId
+  // The form is sent whole and an omitted year is cleared, so an empty field simply leaves it out.
+  if (values.experienceSinceYear && values.experienceSinceYear.trim() !== "") request.experienceSinceYear = Number(values.experienceSinceYear)
   return request
 }
 

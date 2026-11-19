@@ -10,6 +10,7 @@ import { CreatorProfileHeader } from "@/components/catalog/creator-profile-heade
 import { EggImage } from "@/components/egg-image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { VerifiedBadge } from "@/components/catalog/verified-badge"
 import { expectOk, unwrap } from "@/lib/api/answers"
 import { api } from "@/lib/api/client"
 import { errorTextOf } from "@/lib/api/errors"
@@ -57,7 +58,7 @@ function ReviewBody({ view, controls }: { view: AdminCreatorView; controls: Cont
   const { busy, approveContent, rejectContent } = controls
   return (
     <>
-      <CreatorProfileHeader creator={previewOf(profile)} />
+      <CreatorProfileHeader creator={previewOf(profile, view.portfolioItems.filter((work) => work.reviewStatus === "APPROVED").length)} />
       {profile.avatar || profile.pendingAvatar ? (
         <section className="flex flex-wrap gap-6">
           {profile.avatar ? (
@@ -221,6 +222,17 @@ function Review({ view }: { view: AdminCreatorView }) {
         <p className="text-sm text-muted-foreground">
           Владелец: {owner.name}, {owner.email} ({ACCOUNT_STATUS_LABELS[owner.status]})
         </p>
+        <div className="flex flex-wrap items-center gap-3">
+          {profile.verified ? <VerifiedBadge /> : <span className="text-sm text-muted-foreground">Отметки «Проверен» нет.</span>}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => void act(() => unwrap(api.PUT("/v1/admin/creators/{id}/verified", { ...path, body: { verified: !profile.verified } })))}
+          >
+            {profile.verified ? "Снять отметку" : "Отметить как проверенного"}
+          </Button>
+        </div>
         {profile.suspensionReasons.map((reason) => (
           <FormAlert key={reason} tone="info" message={SUSPENSION_LABELS[reason]} />
         ))}

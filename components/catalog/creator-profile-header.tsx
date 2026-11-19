@@ -1,9 +1,12 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
-import { MapPin } from "lucide-react"
+import { Briefcase, Clock, MapPin } from "lucide-react"
+import { RatingLine } from "@/components/catalog/rating-stars"
+import { VerifiedBadge } from "@/components/catalog/verified-badge"
 import { EggImage } from "@/components/egg-image"
 import { initialsOf } from "@/lib/auth/initials"
 import { catalogHref, type CreatorProfile } from "@/lib/catalog"
+import { experienceText, worksCountText } from "@/lib/format"
 
 interface CreatorProfileHeaderProps {
   creator: CreatorProfile
@@ -35,7 +38,11 @@ export function CreatorProfileHeader({ creator, children }: CreatorProfileHeader
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-balance sm:text-3xl">{creator.displayName}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold text-balance sm:text-3xl">{creator.displayName}</h1>
+            {creator.verified ? <VerifiedBadge /> : null}
+          </div>
+          <RatingLine rating={creator.rating} />
           <Link
             href={catalogHref("/creators", { categoryId: creator.category.id })}
             className="mt-1 inline-block text-muted-foreground underline-offset-4 hover:underline"
@@ -43,6 +50,22 @@ export function CreatorProfileHeader({ creator, children }: CreatorProfileHeader
             {creator.category.name}
           </Link>
         </div>
+        {creator.experienceSinceYear !== undefined || creator.worksCount > 0 ? (
+          <ul className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            {creator.experienceSinceYear !== undefined ? (
+              <li className="flex items-center gap-1">
+                <Clock aria-hidden className="size-4" />
+                {experienceText(creator.experienceSinceYear)}
+              </li>
+            ) : null}
+            {creator.worksCount > 0 ? (
+              <li className="flex items-center gap-1">
+                <Briefcase aria-hidden className="size-4" />
+                {worksCountText(creator.worksCount)}
+              </li>
+            ) : null}
+          </ul>
+        ) : null}
         {creator.bio ? <p className="max-w-lg whitespace-pre-line text-muted-foreground">{creator.bio}</p> : null}
         {children}
       </div>
