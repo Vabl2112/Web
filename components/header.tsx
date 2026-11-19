@@ -17,14 +17,18 @@ import {
 import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { initialsOf } from "@/lib/auth/initials"
 import { useSession } from "@/lib/auth/session"
+import { CityMenu } from "@/components/city-menu"
 import { useChat } from "@/components/messaging/chat-provider"
 import { MessagesLink } from "@/components/messaging/messages-link"
+import { NotificationsBell } from "@/components/notifications-bell"
 import { useFeatures } from "@/lib/features"
 
+// The sections of the first prototype. "Услуги" and "Товары" are the listings of that type: one catalog, two ways in.
 const navLinks = [
-  { href: "/creators", label: "Создатели" },
-  { href: "/listings", label: "Позиции" },
-  { href: "/gallery", label: "Работы" },
+  { href: "/creators", label: "Мастера" },
+  { href: "/gallery", label: "Фотогалерея" },
+  { href: "/listings?type=SERVICE", label: "Услуги" },
+  { href: "/listings?type=READY_PRODUCT", label: "Товары" },
 ]
 
 /** An item of the account menu; one without an address opens the chat window instead of a page. */
@@ -72,9 +76,12 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-1">
-          <span className="text-2xl font-bold text-amber-500">EGG</span>
-        </Link>
+        <div className="flex items-center gap-4 lg:gap-6">
+          <Link href="/" className="flex items-center gap-1">
+            <span className="text-2xl font-bold text-amber-500">EGG</span>
+          </Link>
+          <CityMenu />
+        </div>
 
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-6 lg:flex">
@@ -94,6 +101,7 @@ export function Header() {
           {!isLoading && account === null ? <GuestButtons /> : null}
           {account !== null ? (
             <>
+              <NotificationsBell />
               <MessagesLink />
               {/* Not modal: a window that opens from an item of a modal menu would leave the page unclickable after it closes. */}
               <DropdownMenu modal={false}>

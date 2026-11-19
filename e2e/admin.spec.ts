@@ -32,6 +32,13 @@ test.describe("moderation", () => {
     await signIn(creatorPage, creator.person, "/cabinet")
     await expect(creatorPage.getByText("Фото не ваши.")).toBeVisible()
 
+    // The bell of the header tells the same: the showcase was sent back, and why.
+    await creatorPage.getByRole("button", { name: /^Уведомления/ }).click()
+    const bell = creatorPage.getByRole("dialog")
+    await expect(bell.getByText("Витрину отклонили")).toBeVisible()
+    await expect(bell.getByText("Фото не ваши.")).toBeVisible()
+    await creatorPage.keyboard.press("Escape")
+
     // After the fix the creator sends it again and the moderator approves it.
     await creator.api.ok(creator.api.post("/me/creator-profile/submit"), 200)
     await page.goto(`/admin/moderation/${creator.creatorId}`)

@@ -1,7 +1,8 @@
+import { FeaturedCreators } from "@/components/catalog/featured-creators"
 import { GalleryFeed } from "@/components/catalog/gallery-feed"
 import type { SearchParams } from "@/lib/search-params"
 
-/** The front page: the board of works of every published showcase, filtered by category (the creators have a section of their own). */
+/** The front page: the board of works of every published showcase, filtered by category, and under it the masters (they have a page of their own). */
 export function HomePage({ searchParams }: { searchParams: SearchParams }) {
   return (
     <GalleryFeed
@@ -9,6 +10,7 @@ export function HomePage({ searchParams }: { searchParams: SearchParams }) {
       searchParams={searchParams}
       title="Найдите вдохновение"
       description="Работы творческих людей со всей страны. Нажмите на работу, чтобы открыть витрину автора и написать ему."
+      after={<FeaturedCreators />}
     />
   )
 }
