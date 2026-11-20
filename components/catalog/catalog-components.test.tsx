@@ -97,6 +97,21 @@ describe("ListingCard", () => {
     expect(html).toContain(`href="/listings/${listing.id}"`)
   })
 
+  it("links the maker to the showcase, and leaves the maker out on the showcase of that maker", () => {
+    const withMaker = renderToStaticMarkup(<ListingCard listing={listing} />)
+    const without = renderToStaticMarkup(<ListingCard listing={listing} showMaker={false} />)
+
+    expect(withMaker).toContain(`href="/creators/${creator.id}"`)
+    expect(without).not.toContain(`href="/creators/${creator.id}"`)
+    expect(without).not.toContain("Анна Керамика")
+  })
+
+  it("puts the given action at the bottom of the card", () => {
+    const html = renderToStaticMarkup(<ListingCard listing={listing} action={<button>Написать</button>} />)
+
+    expect(html).toContain("Написать")
+  })
+
   it("shows the price from, the city and the delivery", () => {
     const html = plain(renderToStaticMarkup(<ListingCard listing={{ ...listing, priceFromMinor: 250000, city: KAZAN, deliveryAvailable: true }} />))
 

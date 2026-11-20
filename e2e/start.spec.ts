@@ -7,14 +7,15 @@ test("the header has the sections of the prototype and the front page shows the 
   await page.goto("/")
 
   const header = page.getByRole("banner")
-  for (const name of ["Мастера", "Фотогалерея", "Услуги", "Товары"]) {
+  for (const name of ["Мастера", "Фотогалерея", "Услуги и товары"]) {
     await expect(header.getByRole("link", { name })).toBeVisible()
   }
   await expect(page.getByRole("heading", { name: "Мастера", level: 2 })).toBeVisible()
   await expect(page.getByRole("link", { name: "Все мастера" })).toBeVisible()
 
-  // "Услуги" is the list of the listings of that type, with its own title.
-  await header.getByRole("link", { name: "Услуги" }).click()
-  await expect(page).toHaveURL(/\/listings\?type=SERVICE/)
-  await expect(page.getByRole("heading", { name: "Услуги", level: 1 })).toBeVisible()
+  // Services and goods are one section: one menu item, one list.
+  await expect(header.getByRole("link", { name: "Товары", exact: true })).toHaveCount(0)
+  await header.getByRole("link", { name: "Услуги и товары" }).click()
+  await expect(page).toHaveURL(/\/listings$/)
+  await expect(page.getByRole("heading", { name: "Услуги и товары", level: 1 })).toBeVisible()
 })

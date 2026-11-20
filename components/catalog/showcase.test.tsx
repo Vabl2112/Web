@@ -32,14 +32,14 @@ describe("MasonryGrid caption", () => {
 describe("ShowcaseTabs", () => {
   const tabs = [
     { id: "portfolio", label: "Портфолио", content: <p>работы</p> },
-    { id: "listings", label: "Позиции", content: <p>позиции</p> },
+    { id: "listings", label: "Услуги и товары", content: <p>позиции</p> },
   ]
 
   it("shows the tabs, the first section and the gear that hides sections", () => {
     const html = renderToStaticMarkup(<ShowcaseTabs tabs={tabs} />)
 
     expect(html).toContain("Портфолио")
-    expect(html).toContain("Позиции")
+    expect(html).toContain("Услуги и товары")
     expect(html).toContain("работы")
     expect(html).not.toContain("позиции")
     expect(html).toContain("Настроить разделы")
