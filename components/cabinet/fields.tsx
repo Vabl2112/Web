@@ -1,11 +1,13 @@
 "use client"
 
 import { type ComponentProps, type ReactNode, useId } from "react"
+import { ChevronDown } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
+// The look of the select of the first prototype (the trigger of the shadcn `Select`): the same border, height and chevron.
 const SELECT_CLASS =
-  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50 aria-invalid:border-destructive"
+  "h-9 w-full appearance-none rounded-md border border-input bg-transparent py-1 pr-9 pl-3 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive dark:bg-input/30"
 
 interface ShellProps {
   id: string
@@ -45,19 +47,25 @@ interface SelectFieldProps extends Omit<ComponentProps<"select">, "id"> {
   hint?: string
 }
 
-/** A native select: it works with `register(...)` of react-hook-form as it is, and on a phone it opens the system list. */
+/**
+ * A native select dressed like the shadcn `Select`: it works with `register(...)` of react-hook-form as it is, and on a phone it opens the
+ * system list. (The Radix `Select` needs a controlled value for every field and has no such list, so it is not used for forms.)
+ */
 export function SelectField({ label, options, placeholder, error, hint, ...props }: SelectFieldProps) {
   const id = useId()
   return (
     <Shell id={id} label={label} error={error} hint={hint}>
-      <select id={id} className={SELECT_CLASS} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, hint)} {...props}>
-        {placeholder !== undefined ? <option value="">{placeholder}</option> : null}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <div className="relative">
+        <select id={id} className={SELECT_CLASS} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, hint)} {...props}>
+          {placeholder !== undefined ? <option value="">{placeholder}</option> : null}
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 opacity-50" />
+      </div>
     </Shell>
   )
 }

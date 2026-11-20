@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { LogOut, Menu, X } from "lucide-react"
+import { LogOut, Menu } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { initialsOf } from "@/lib/auth/initials"
 import { useSession } from "@/lib/auth/session"
 import { CityMenu } from "@/components/city-menu"
@@ -140,14 +140,10 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="right" className="w-full max-w-xs p-0">
               <div className="flex h-full flex-col">
-                <div className="flex items-center justify-between border-b border-border p-4">
-                  <span className="text-lg font-semibold">Меню</span>
-                  <SheetClose asChild>
-                    <Button variant="ghost" size="icon">
-                      <X className="size-5" />
-                      <span className="sr-only">Закрыть меню</span>
-                    </Button>
-                  </SheetClose>
+                {/* The cross of the sheet is the one that SheetContent brings; the title names the dialog for a screen reader. */}
+                <div className="flex h-12 items-center border-b border-border px-4">
+                  <SheetTitle className="text-lg font-semibold">Меню</SheetTitle>
+                  <SheetDescription className="sr-only">Разделы сайта и аккаунт.</SheetDescription>
                 </div>
 
                 {account !== null ? (

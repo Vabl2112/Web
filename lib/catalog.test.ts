@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { catalogHref, parseCatalogQuery } from "./catalog"
+import { catalogHref, filterCount, parseCatalogQuery } from "./catalog"
 
 const CATEGORY = "0192f1c6-1111-7000-8000-000000000001"
 const SUBCATEGORY = "0192f1c6-1111-7000-8000-000000000011"
@@ -61,5 +61,14 @@ describe("catalogHref", () => {
 
   it("makes the address of a link that removes a filter", () => {
     expect(catalogHref("/gallery", { categoryId: CATEGORY, subcategoryId: undefined })).toBe(`/gallery?categoryId=${CATEGORY}`)
+  })
+})
+
+describe("filterCount", () => {
+  it("counts the filters of the panel, not the search or the name of the city", () => {
+    expect(filterCount({})).toBe(0)
+    expect(filterCount({ q: "кружка" })).toBe(0)
+    expect(filterCount({ categoryId: CATEGORY, subcategoryId: SUBCATEGORY })).toBe(2)
+    expect(filterCount({ type: "SERVICE", cityId: CITY, cityName: "Казань", sort: "RATING", q: "x" })).toBe(3)
   })
 })
