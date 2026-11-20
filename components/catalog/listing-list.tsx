@@ -2,6 +2,7 @@
 
 import { ListingCard } from "@/components/catalog/listing-card"
 import { EmptyState, MoreButton } from "@/components/catalog/more-button"
+import { WriteButton } from "@/components/messaging/write-button"
 import { api } from "@/lib/api/client"
 import { type Page, unwrap } from "@/lib/api/hooks"
 import type { CatalogQuery, ListingSummary } from "@/lib/catalog"
@@ -33,7 +34,18 @@ export function ListingList({ initial, query = {}, creatorId, emptyText = "Ни�
       <ul className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {items.map((listing) => (
           <li key={listing.id}>
-            <ListingCard listing={listing} />
+            <ListingCard
+              listing={listing}
+              showMaker={creatorId === undefined}
+              action={
+                <WriteButton
+                  creatorId={listing.creator.id}
+                  listing={{ id: listing.id, title: listing.title }}
+                  variant="outline"
+                  className="w-full"
+                />
+              }
+            />
           </li>
         ))}
       </ul>

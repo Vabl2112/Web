@@ -23,12 +23,11 @@ import { MessagesLink } from "@/components/messaging/messages-link"
 import { NotificationsBell } from "@/components/notifications-bell"
 import { useFeatures } from "@/lib/features"
 
-// The sections of the first prototype. "Услуги" and "Товары" are the listings of that type: one catalog, two ways in.
+// The sections of the first prototype. Services and goods are one section here, one list of listings (the user's decision).
 const navLinks = [
   { href: "/creators", label: "Мастера" },
   { href: "/gallery", label: "Фотогалерея" },
-  { href: "/listings?type=SERVICE", label: "Услуги" },
-  { href: "/listings?type=READY_PRODUCT", label: "Товары" },
+  { href: "/listings", label: "Услуги и товары" },
 ]
 
 /** An item of the account menu; one without an address opens the chat window instead of a page. */
