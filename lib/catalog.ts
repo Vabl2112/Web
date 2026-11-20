@@ -76,3 +76,8 @@ export function catalogHref(path: string, query: CatalogQuery): string {
   const text = search.toString()
   return text === "" ? path : `${path}?${text}`
 }
+
+/** How many of the filters that sit in the panel "Фильтры" of a phone are set (the search box stays outside it, so it is not counted). */
+export function filterCount(query: CatalogQuery): number {
+  return (["categoryId", "subcategoryId", "type", "cityId", "sort"] as const).filter((key) => query[key] !== undefined).length
+}

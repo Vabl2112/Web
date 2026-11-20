@@ -88,6 +88,10 @@ test.describe("moderation", () => {
     await prepareCreator("metrics", { publish: true })
     await signIn(page, ADMIN, "/admin/metrics")
     await expect(page.getByRole("heading", { name: "Метрики" })).toBeVisible()
+    // The tabs of the administration show where the person is.
+    const tabs = page.getByRole("navigation", { name: "Администрирование" })
+    await expect(tabs.getByRole("link", { name: "Метрики" })).toHaveAttribute("aria-current", "page")
+    await expect(tabs.getByRole("link", { name: "Модерация" })).not.toHaveAttribute("aria-current", "page")
     await expect(page.getByText("Активных витрин").first()).toBeVisible()
     const admin = await adminApi()
     const showcases = await admin.ok<{ byStatus: { status: string; count: number }[] }>(admin.get("/admin/metrics/showcases"))

@@ -67,6 +67,31 @@ test.describe("the public catalog", () => {
     await expect(card).toContainText(creator.person.name)
     await expect(card.getByRole("link", { name: "Написать" })).toBeVisible()
     await card.getByRole("link", { name: new RegExp(creator.listingTitle) }).click()
-    await expect(page.getByRole("heading", { name: creator.listingTitle })).toBeVisible()
+    await expect(page.getByRole("heading", { name: creator.listingTitle, level: 1 })).toBeVisible()
+    // The page of one listing has the look of its card: the fact of the type, the maker as a link to the showcase, the way back.
+    await expect(page.getByText("В наличии")).toBeVisible()
+    await expect(page.getByRole("link", { name: new RegExp(`${creator.displayName}.*Открыть витрину`) })).toHaveAttribute("href", `/creators/${creator.creatorId}`)
+    await page.getByRole("link", { name: "Услуги и товары" }).last().click()
+    await expect(page).toHaveURL(/\/listings$/)
+  })
+
+  test.describe("on a phone", () => {
+    test.use({ viewport: { width: 390, height: 800 } })
+
+    test("the filters are behind the button, a chosen filter closes the sheet and is counted on the button", async ({ page }) => {
+      await page.goto("/creators")
+      await expect(page.getByRole("link", { name: "По рейтингу" })).toBeHidden()
+
+      await page.getByRole("button", { name: "Фильтры" }).click()
+      const sheet = page.getByRole("dialog", { name: "Фильтры" })
+      await expect(sheet.getByRole("link", { name: "По рейтингу" })).toBeVisible()
+      // The search of a city does not take the focus: a phone would raise its keyboard.
+      await expect(sheet.getByLabel("Город")).not.toBeFocused()
+
+      await sheet.getByRole("link", { name: "По рейтингу" }).click()
+      await expect(page).toHaveURL(/sort=RATING/)
+      await expect(sheet).toBeHidden()
+      await expect(page.getByRole("button", { name: /Фильтры/ })).toContainText("1")
+    })
   })
 })

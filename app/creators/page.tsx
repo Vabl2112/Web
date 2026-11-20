@@ -2,10 +2,11 @@ import type { Metadata } from "next"
 import { CityFilter } from "@/components/catalog/city-filter"
 import { CategoryChips, SearchForm, SortTabs } from "@/components/catalog/filters"
 import { CreatorList } from "@/components/catalog/creator-list"
+import { FilterPanel } from "@/components/catalog/filter-panel"
 import { PageShell } from "@/components/catalog/page-shell"
 import { unwrap } from "@/lib/api/answers"
 import { serverApi } from "@/lib/api/server"
-import { catalogHref, parseCatalogQuery } from "@/lib/catalog"
+import { catalogHref, filterCount, parseCatalogQuery } from "@/lib/catalog"
 import type { SearchParams } from "@/lib/search-params"
 
 export const metadata: Metadata = { title: "Мастера — EGG" }
@@ -19,9 +20,11 @@ export default async function CreatorsPage({ searchParams }: { searchParams: Sea
   return (
     <PageShell title="Мастера" description="Найдите своего мастера: смотрите работы и пишите напрямую.">
       <SearchForm action="/creators" query={query} placeholder="Имя, занятие или тег" />
-      <CategoryChips categories={categories.items} basePath="/creators" query={query} />
-      <SortTabs basePath="/creators" query={query} />
-      <CityFilter basePath="/creators" query={query} />
+      <FilterPanel active={filterCount(query)}>
+        <CategoryChips categories={categories.items} basePath="/creators" query={query} />
+        <SortTabs basePath="/creators" query={query} />
+        <CityFilter basePath="/creators" query={query} />
+      </FilterPanel>
       <CreatorList key={catalogHref("/creators", query)} initial={page} query={query} />
     </PageShell>
   )

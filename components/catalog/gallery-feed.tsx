@@ -1,10 +1,11 @@
 import type { ReactNode } from "react"
+import { FilterPanel } from "@/components/catalog/filter-panel"
 import { CategoryChips } from "@/components/catalog/filters"
 import { GalleryList } from "@/components/catalog/gallery-list"
 import { PageShell } from "@/components/catalog/page-shell"
 import { unwrap } from "@/lib/api/answers"
 import { serverApi } from "@/lib/api/server"
-import { catalogHref, parseCatalogQuery } from "@/lib/catalog"
+import { catalogHref, filterCount, parseCatalogQuery } from "@/lib/catalog"
 import type { SearchParams } from "@/lib/search-params"
 
 interface GalleryFeedProps {
@@ -26,7 +27,9 @@ export async function GalleryFeed({ basePath, searchParams, title, description, 
   ])
   return (
     <PageShell title={title} description={description}>
-      <CategoryChips categories={categories.items} basePath={basePath} query={query} withSubcategories />
+      <FilterPanel active={filterCount(query)}>
+        <CategoryChips categories={categories.items} basePath={basePath} query={query} withSubcategories />
+      </FilterPanel>
       <GalleryList key={catalogHref(basePath, query)} initial={page} query={query} />
       {after}
     </PageShell>

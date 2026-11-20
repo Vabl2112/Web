@@ -20,6 +20,7 @@ test.describe("the cabinet of a creator", () => {
 
     // Without the minimum the checklist names exactly what is missing and the button is off (AC-14).
     await page.goto("/cabinet")
+    await expect(page.getByRole("navigation", { name: "Разделы кабинета" }).getByRole("link", { name: "Витрина" })).toHaveAttribute("aria-current", "page")
     await expect(page.getByRole("link", { name: "Добавьте хотя бы одну позицию" })).toBeVisible()
     await expect(page.getByRole("link", { name: "Добавьте не менее трёх работ в портфолио" })).toBeVisible()
     await expect(page.getByRole("button", { name: "Отправить на проверку" })).toBeDisabled()
