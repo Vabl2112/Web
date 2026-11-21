@@ -23,6 +23,15 @@ const STARS = [1, 2, 3, 4, 5]
 /** The key of what the signed-in person may do on this showcase; the tab refreshes it after any change. */
 export const mineKey = (creatorId: string) => ["feedback-mine", creatorId] as const
 
+/** What the signed-in person may do on this showcase and the feedback they left; nothing is read for a guest. The form and the list share it. */
+export function useMyFeedback(creatorId: string) {
+  const { account } = useSession()
+  return useGet(account === null ? null : mineKey(creatorId), () => api.GET("/v1/creators/{id}/feedback/mine", { params: { path: { id: creatorId } } }), {
+    shouldRetryOnError: false,
+    revalidateOnFocus: false,
+  })
+}
+
 interface FeedbackFormProps {
   creatorId: string
   /** Called after feedback was left or deleted, so the list and the stars on the page are read again. */
@@ -40,11 +49,7 @@ export function FeedbackForm({ creatorId, onChanged }: FeedbackFormProps) {
   const [text, setText] = useState("")
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
-  const { data: mine, mutate } = useGet(
-    account === null ? null : mineKey(creatorId),
-    () => api.GET("/v1/creators/{id}/feedback/mine", { params: { path: { id: creatorId } } }),
-    { shouldRetryOnError: false, revalidateOnFocus: false },
-  )
+  const { data: mine, mutate } = useMyFeedback(creatorId)
 
   if (isLoading) return null
   if (account === null) {

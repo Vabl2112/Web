@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { mutate as mutateGlobal } from "swr"
 import useSWRInfinite from "swr/infinite"
-import { FeedbackForm, mineKey } from "@/components/catalog/feedback-form"
+import { FeedbackForm, mineKey, useMyFeedback } from "@/components/catalog/feedback-form"
 import { FeedbackItem } from "@/components/catalog/feedback-list"
 import { EmptyState, MoreButton } from "@/components/catalog/more-button"
 import { type Page, unwrap } from "@/lib/api/answers"
@@ -27,6 +27,9 @@ export function FeedbackTab({ creatorId }: { creatorId: string }) {
     { revalidateFirstPage: false, shouldRetryOnError: false, revalidateOnFocus: false },
   )
   const items = data?.flatMap((page) => page.items) ?? []
+  // The person's own feedback stands in the card above ("Ваш отзыв", with its button to delete); the list is the others'.
+  const { data: mine } = useMyFeedback(creatorId)
+  const others = items.filter((item) => item.id !== mine?.feedback?.id)
   const last = data?.[data.length - 1]
   const loadingMore = isLoading || (size > (data?.length ?? 0) && data !== undefined)
 
@@ -41,9 +44,9 @@ export function FeedbackTab({ creatorId }: { creatorId: string }) {
       <FeedbackForm creatorId={creatorId} onChanged={() => void changed()} />
       {error ? <p role="alert" className="text-sm text-destructive">{errorTextOf(error)}</p> : null}
       {data && items.length === 0 ? <EmptyState>Пока нет отзывов.</EmptyState> : null}
-      {items.length > 0 ? (
+      {others.length > 0 ? (
         <ul className="flex flex-col gap-3">
-          {items.map((item) => (
+          {others.map((item) => (
             <FeedbackItem key={item.id} feedback={item} canDelete={isAdmin} onDeleted={() => void changed()} />
           ))}
         </ul>

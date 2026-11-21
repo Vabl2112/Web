@@ -33,6 +33,9 @@ test("a person leaves feedback after the creator has answered, the stars show on
   await expect(page.getByText("Ваш отзыв")).toBeVisible()
   await expect(page.getByText("(1 отзыв)")).toBeVisible()
   await expect(page.getByRole("tab", { name: "Отзывы (1)" })).toBeVisible()
+  // The person's own feedback stands in its card only, not again in the list, and a list that has only that one is not "empty".
+  await expect(page.getByText("Быстро ответил и всё сделал.")).toHaveCount(1)
+  await expect(page.getByText("Пока нет отзывов.")).toHaveCount(0)
 
   // A guest sees the stars on the card, in the list ordered by rating, and the feedback of the tab.
   const guest = await browser.newPage()

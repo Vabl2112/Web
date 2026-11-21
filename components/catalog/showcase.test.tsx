@@ -35,18 +35,18 @@ describe("ShowcaseTabs", () => {
     { id: "listings", label: "Услуги и товары", content: <p>позиции</p> },
   ]
 
-  it("shows the tabs, the first section and the gear that hides sections", () => {
+  it("shows the tabs and the first section, and no way to hide sections", () => {
     const html = renderToStaticMarkup(<ShowcaseTabs tabs={tabs} />)
 
     expect(html).toContain("Портфолио")
     expect(html).toContain("Услуги и товары")
     expect(html).toContain("работы")
     expect(html).not.toContain("позиции")
-    expect(html).toContain("Настроить разделы")
+    expect(html).not.toContain("Настроить разделы")
+    expect(html).not.toContain("aria-haspopup")
   })
 
-  it("has no gear for a single section and nothing at all for none", () => {
-    expect(renderToStaticMarkup(<ShowcaseTabs tabs={tabs.slice(0, 1)} />)).not.toContain("Настроить разделы")
+  it("shows nothing at all for no sections", () => {
     expect(renderToStaticMarkup(<ShowcaseTabs tabs={[]} />)).toBe("")
   })
 })

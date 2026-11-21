@@ -17,6 +17,9 @@ test.describe("the public catalog", () => {
     await page.getByRole("link", { name: new RegExp(creator.displayName) }).click()
     await expect(page.getByRole("heading", { name: creator.displayName })).toBeVisible()
     await expect(page.getByText("Посуда на гончарном круге.")).toBeVisible()
+    // The sections of a showcase are tabs, and a visitor cannot hide them.
+    await expect(page.getByRole("tab", { name: "Портфолио" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Настроить разделы" })).toHaveCount(0)
   })
 
   test("every page carries the security headers, with the media origin in the policy", async ({ request }) => {
