@@ -80,7 +80,7 @@ export default async function ListingPage({ params }: Props) {
               ) : null}
             </div>
           ) : null}
-          <div className="flex flex-col gap-5 lg:sticky lg:top-24 lg:self-start">
+          <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-3">
               <Badge variant="outline" className="w-fit">
                 {LISTING_TYPE_LABELS[listing.type]}
