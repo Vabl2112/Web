@@ -16,17 +16,19 @@ interface GalleryFeedProps {
   description: string
   /** More on the page after the board (the front page shows the masters there). */
   after?: ReactNode
+  /** The opening block above the title (the front page for a guest); the title is then a second-level heading. */
+  hero?: ReactNode
 }
 
 /** The feed of works as a board of pictures with the filter of categories on top; the front page and `/gallery` show the same one. */
-export async function GalleryFeed({ basePath, searchParams, title, description, after }: GalleryFeedProps) {
+export async function GalleryFeed({ basePath, searchParams, title, description, after, hero }: GalleryFeedProps) {
   const query = parseCatalogQuery(await searchParams)
   const [categories, page] = await Promise.all([
     unwrap(serverApi.GET("/v1/categories")),
     unwrap(serverApi.GET("/v1/gallery", { params: { query: { categoryId: query.categoryId, subcategoryId: query.subcategoryId } } })),
   ])
   return (
-    <PageShell title={title} description={description}>
+    <PageShell title={title} description={description} hero={hero} titleLevel={hero ? 2 : 1}>
       <div className="hidden sm:block">
         <CategoryChips categories={categories.items} basePath={basePath} query={query} withSubcategories />
       </div>
