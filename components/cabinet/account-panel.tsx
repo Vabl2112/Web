@@ -4,6 +4,7 @@ import { useId, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { FormAlert } from "@/components/auth/form-alert"
+import { NotificationSettings } from "@/components/cabinet/notification-settings"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -110,6 +111,7 @@ export function AccountPanel() {
           </dd>
         </dl>
       </section>
+      <NotificationSettings />
       <section aria-labelledby={dangerId} className="flex flex-col gap-3 rounded-2xl border border-destructive/40 p-5">
         <h2 id={dangerId} className="text-lg font-semibold">
           Удаление аккаунта

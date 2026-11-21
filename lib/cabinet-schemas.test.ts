@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import type { MyCreatorProfile, MyListing } from "./cabinet"
-import { EMPTY_LISTING, experienceYearProblem, listingRequest, listingSchema, listingValuesOf, portfolioSchema, profileRequest, profileSchema, profileValuesOf } from "./cabinet-schemas"
+import type { MyCreatorProfile, MyListing, MyPortfolioItem } from "./cabinet"
+import { EMPTY_LISTING, experienceYearProblem, listingRequest, listingSchema, listingValuesOf, portfolioFields, portfolioSchema, portfolioValuesOf, profileRequest, profileSchema, profileValuesOf } from "./cabinet-schemas"
 
 const CATEGORY = "0192f1c6-1111-7000-8000-000000000001"
 
@@ -128,6 +128,30 @@ describe("portfolioSchema", () => {
   it("wants a category, the title is optional", () => {
     expect(portfolioSchema.safeParse({ title: "", categoryId: CATEGORY, subcategoryId: "" }).success).toBe(true)
     expect(portfolioSchema.safeParse({ title: "Серия", categoryId: "", subcategoryId: "" }).success).toBe(false)
+  })
+})
+
+describe("portfolioFields and portfolioValuesOf", () => {
+  const SUBCATEGORY = "0192f1c6-1111-7000-8000-000000000011"
+
+  it("sends the title and the subcategory only when they are filled in", () => {
+    expect(portfolioFields({ title: "  ", categoryId: CATEGORY, subcategoryId: "" })).toEqual({ categoryId: CATEGORY })
+    expect(portfolioFields({ title: " Серия ", categoryId: CATEGORY, subcategoryId: SUBCATEGORY })).toEqual({
+      categoryId: CATEGORY,
+      title: "Серия",
+      subcategoryId: SUBCATEGORY,
+    })
+  })
+
+  it("starts the form of a change with what the work has, empty where it has nothing", () => {
+    const image = { width: 10, height: 10, variants: [] }
+    const bare: MyPortfolioItem = { id: "w1", category: { id: CATEGORY, slug: "c", name: "Керамика" }, image, position: 0, reviewStatus: "APPROVED" }
+    expect(portfolioValuesOf(bare)).toEqual({ title: "", categoryId: CATEGORY, subcategoryId: "" })
+    expect(portfolioValuesOf({ ...bare, title: "Серия", subcategory: { id: SUBCATEGORY, slug: "s", name: "Кружки" } })).toEqual({
+      title: "Серия",
+      categoryId: CATEGORY,
+      subcategoryId: SUBCATEGORY,
+    })
   })
 })
 

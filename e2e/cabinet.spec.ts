@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { heavyPng, solidPng } from "./support/image"
-import { Api, newPerson, registerConfirmed, signIn } from "./support/world"
+import { Api, newPerson, prepareCreator, registerConfirmed, signIn } from "./support/world"
 
 // AC-13, AC-14, AC-16 and AC-42 in the part of the web client.
 test.describe("the cabinet of a creator", () => {
@@ -72,5 +72,23 @@ test.describe("the cabinet of a creator", () => {
     expect(refused.headers()["content-type"]).toContain("application/problem+json")
     expect(await refused.json()).toMatchObject({ status: 413 })
     await api.dispose()
+  })
+
+  test("a creator changes the title of a work in a window, and the change is stored", async ({ page }) => {
+    const creator = await prepareCreator("edit")
+    await signIn(page, creator.person, "/cabinet/portfolio")
+
+    await page.getByRole("button", { name: "Изменить" }).first().click()
+    const dialog = page.getByRole("dialog", { name: "Изменить работу" })
+    // The window starts with what the work has: the category is chosen, the title is empty.
+    await expect(dialog.getByLabel("Категория", { exact: true })).not.toHaveValue("")
+    await expect(dialog.getByLabel("Название")).toHaveValue("")
+    await dialog.getByLabel("Название").fill("Серия «Синяя глазурь»")
+    await dialog.getByRole("button", { name: "Сохранить" }).click()
+    await expect(dialog).toBeHidden()
+    await expect(page.getByText("Серия «Синяя глазурь»")).toBeVisible()
+
+    const stored = await creator.api.ok<{ items: { title?: string }[] }>(creator.api.get("/me/portfolio-items"))
+    expect(stored.items.map((item) => item.title)).toContain("Серия «Синяя глазурь»")
   })
 })

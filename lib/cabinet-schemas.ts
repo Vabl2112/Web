@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { type CreatorProfileInput, type ListingInput, type MyListing, minorOfRubles, rublesOfMinor, tagsOfText, textOfTags, type MyCreatorProfile } from "@/lib/cabinet"
+import { type CreatorProfileInput, type ListingInput, type MyListing, type MyPortfolioItem, type PortfolioItemInput, minorOfRubles, rublesOfMinor, tagsOfText, textOfTags, type MyCreatorProfile } from "@/lib/cabinet"
 
 const MAX_TAGS = 10
 const MAX_TAG_LENGTH = 30
@@ -137,3 +137,20 @@ export const portfolioSchema = z.object({
 })
 
 export type PortfolioValues = z.input<typeof portfolioSchema>
+
+/** What the form of a work starts with when it changes a work that exists. */
+export function portfolioValuesOf(item: MyPortfolioItem): PortfolioValues {
+  return { title: item.title ?? "", categoryId: item.category.id, subcategoryId: item.subcategory?.id ?? "" }
+}
+
+/**
+ * The fields of a work for the API, for a new work and for a change alike: the title and the subcategory go only when they are filled in
+ * (a change replaces the fields, so what is left out is cleared).
+ */
+export function portfolioFields(values: PortfolioValues): PortfolioItemInput {
+  return {
+    categoryId: values.categoryId,
+    ...(values.title.trim() !== "" ? { title: values.title.trim() } : {}),
+    ...(values.subcategoryId !== "" ? { subcategoryId: values.subcategoryId } : {}),
+  }
+}

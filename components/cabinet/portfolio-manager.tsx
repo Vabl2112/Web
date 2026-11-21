@@ -2,40 +2,34 @@
 
 import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm, useWatch } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { FormAlert } from "@/components/auth/form-alert"
-import { TextField } from "@/components/auth/text-field"
 import { ReviewBadge } from "@/components/cabinet/badges"
 import { CreatorGate } from "@/components/cabinet/creator-gate"
-import { SelectField } from "@/components/cabinet/fields"
 import { UploadButton } from "@/components/cabinet/upload-button"
+import { EditWorkButton, WORK_FIELD_ERRORS, WorkFields } from "@/components/cabinet/work-form"
 import { EggImage } from "@/components/egg-image"
 import { Button } from "@/components/ui/button"
 import { expectOk, unwrap } from "@/lib/api/answers"
 import { api } from "@/lib/api/client"
 import { ApiError, errorTextOf } from "@/lib/api/errors"
 import type { MyPortfolioItem } from "@/lib/cabinet"
-import { type PortfolioValues, portfolioSchema } from "@/lib/cabinet-schemas"
-import { refreshCabinet, useCategories, useMyPortfolio } from "@/lib/cabinet-hooks"
+import { type PortfolioValues, portfolioFields, portfolioSchema } from "@/lib/cabinet-schemas"
+import { refreshCabinet, useMyPortfolio } from "@/lib/cabinet-hooks"
 import { applyFieldErrors } from "@/lib/form-errors"
 import { imageFileProblem, uploadImage } from "@/lib/media"
 
 /** A new work: the image is chosen first, the category (and optionally the subcategory and the title) is filled in, then it is sent. */
 function AddWork() {
-  const categories = useCategories()
   const [file, setFile] = useState<File | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  const form = useForm<PortfolioValues>({ resolver: zodResolver(portfolioSchema), defaultValues: { title: "", categoryId: "", subcategoryId: "" } })
   const {
-    register,
     handleSubmit,
-    control,
     reset,
     setError,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<PortfolioValues>({ resolver: zodResolver(portfolioSchema), defaultValues: { title: "", categoryId: "", subcategoryId: "" } })
-  const chosenCategory = useWatch({ control, name: "categoryId" })
-  const children = categories.find((category) => category.id === chosenCategory)?.children ?? []
+    formState: { isSubmitting },
+  } = form
 
   const choose = (chosen: File) => {
     const problem = imageFileProblem(chosen)
@@ -48,21 +42,12 @@ function AddWork() {
     setFailure(null)
     try {
       const media = await uploadImage(file)
-      await unwrap(
-        api.POST("/v1/me/portfolio-items", {
-          body: {
-            mediaId: media.id,
-            categoryId: values.categoryId,
-            ...(values.title.trim() !== "" ? { title: values.title.trim() } : {}),
-            ...(values.subcategoryId !== "" ? { subcategoryId: values.subcategoryId } : {}),
-          },
-        }),
-      )
+      await unwrap(api.POST("/v1/me/portfolio-items", { body: { mediaId: media.id, ...portfolioFields(values) } }))
       await refreshCabinet()
       reset()
       setFile(null)
     } catch (error) {
-      const shown = error instanceof ApiError && applyFieldErrors(error, setError, { categoryId: "categoryId", subcategoryId: "subcategoryId", title: "title" })
+      const shown = error instanceof ApiError && applyFieldErrors(error, setError, WORK_FIELD_ERRORS)
       setFailure(shown ? null : errorTextOf(error))
     }
   })
@@ -75,24 +60,7 @@ function AddWork() {
         <UploadButton label={file ? "Выбрать другое изображение" : "Выбрать изображение"} onFile={choose} />
         {file ? <span className="truncate text-sm text-muted-foreground">{file.name}</span> : null}
       </div>
-      <SelectField
-        label="Категория"
-        placeholder="Выберите категорию"
-        options={categories.map((category) => ({ value: category.id, label: category.name }))}
-        error={errors.categoryId?.message}
-        // A subcategory belongs to one category: another category leaves the old choice behind, and the API refuses the pair.
-        {...register("categoryId", { onChange: () => setValue("subcategoryId", "") })}
-      />
-      {children.length > 0 ? (
-        <SelectField
-          label="Подкатегория"
-          placeholder="Не выбрана"
-          options={children.map((child) => ({ value: child.id, label: child.name }))}
-          error={errors.subcategoryId?.message}
-          {...register("subcategoryId")}
-        />
-      ) : null}
-      <TextField label="Название" hint="Необязательно." error={errors.title?.message} {...register("title")} />
+      <WorkFields form={form} />
       <Button type="submit" className="w-fit" disabled={isSubmitting || file === null}>
         {isSubmitting ? "Загружаем…" : "Добавить"}
       </Button>
@@ -119,13 +87,14 @@ function WorkTile({ item, index, count, busy, onMove, onRemove }: WorkTileProps)
         <span className="truncate text-sm">{item.title ?? item.category.name}</span>
       </div>
       {item.rejectionReason ? <p className="text-sm text-destructive">{item.rejectionReason}</p> : null}
-      <div className="flex gap-1">
+      <div className="flex flex-wrap gap-1">
         <Button type="button" variant="outline" size="sm" disabled={busy || index === 0} aria-label="Поднять выше" onClick={() => onMove(index, index - 1)}>
           ←
         </Button>
         <Button type="button" variant="outline" size="sm" disabled={busy || index === count - 1} aria-label="Опустить ниже" onClick={() => onMove(index, index + 1)}>
           →
         </Button>
+        <EditWorkButton item={item} disabled={busy} />
         <Button type="button" variant="ghost" size="sm" className="ml-auto" disabled={busy} onClick={onRemove}>
           Удалить
         </Button>
