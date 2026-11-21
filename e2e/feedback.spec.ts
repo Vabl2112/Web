@@ -40,7 +40,7 @@ test("a person leaves feedback after the creator has answered, the stars show on
   // A guest sees the stars on the card, in the list ordered by rating, and the feedback of the tab.
   const guest = await browser.newPage()
   await guest.goto("/creators?sort=RATING")
-  await expect(guest.getByRole("link", { name: "По рейтингу" })).toHaveAttribute("aria-current", "true")
+  await expect(guest.getByRole("combobox", { name: "Порядок мастеров" })).toContainText("По рейтингу")
   const card = guest.getByRole("article").filter({ hasText: creator.displayName })
   await expect(card).toContainText("(1 отзыв)")
   await guest.goto(`/creators/${creator.creatorId}`)

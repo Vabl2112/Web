@@ -1,5 +1,6 @@
 "use client"
 
+import { MessageSquare } from "lucide-react"
 import { ListingCard } from "@/components/catalog/listing-card"
 import { EmptyState, MoreButton } from "@/components/catalog/more-button"
 import { WriteButton } from "@/components/messaging/write-button"
@@ -31,9 +32,10 @@ export function ListingList({ initial, query = {}, creatorId, emptyText = "Ни�
   if (items.length === 0) return <EmptyState>{emptyText}</EmptyState>
   return (
     <div className="flex flex-col gap-6">
-      <ul className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* The grid of the products of the first prototype; a service is two columns wide, like the cards of its page. */}
+      <ul className="grid grid-flow-dense grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {items.map((listing) => (
-          <li key={listing.id}>
+          <li key={listing.id} className={listing.type === "SERVICE" ? "col-span-2" : undefined}>
             <ListingCard
               listing={listing}
               showMaker={creatorId === undefined}
@@ -41,8 +43,8 @@ export function ListingList({ initial, query = {}, creatorId, emptyText = "Ни�
                 <WriteButton
                   creatorId={listing.creator.id}
                   listing={{ id: listing.id, title: listing.title }}
-                  variant="outline"
-                  className="w-full"
+                  icon={<MessageSquare aria-hidden className="size-4" />}
+                  className={listing.type === "SERVICE" ? "w-full sm:w-auto" : "w-full"}
                 />
               }
             />

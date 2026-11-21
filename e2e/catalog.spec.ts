@@ -83,19 +83,30 @@ test.describe("the public catalog", () => {
 
     test("the filters are behind the button, a chosen filter closes the sheet and is counted on the button", async ({ page }) => {
       await page.goto("/creators")
-      await expect(page.getByRole("link", { name: "По рейтингу" })).toBeHidden()
+      // The categories of the page are behind the button; the search is in the page, without a button of its own.
+      await expect(page.getByRole("link", { name: "Тату", exact: true })).toBeHidden()
+      // The button of the search is there for a screen reader only: one pixel wide.
+      expect((await page.getByRole("button", { name: "Найти" }).boundingBox())?.width ?? 0).toBeLessThanOrEqual(1)
 
       await page.getByRole("button", { name: "Фильтры" }).click()
       const sheet = page.getByRole("dialog", { name: "Фильтры" })
-      await expect(sheet.getByRole("link", { name: "По рейтингу" })).toBeVisible()
+      await expect(sheet.getByRole("link", { name: "Тату", exact: true })).toBeVisible()
       // The search of a city does not take the focus (a phone would raise its keyboard); the sheet itself does, so a screen reader lands in it.
       await expect(sheet.getByLabel("Город")).not.toBeFocused()
       await expect(sheet).toBeFocused()
 
-      await sheet.getByRole("link", { name: "По рейтингу" }).click()
-      await expect(page).toHaveURL(/sort=RATING/)
+      await sheet.getByRole("link", { name: "Тату", exact: true }).click()
+      await expect(page).toHaveURL(/categoryId=/)
       await expect(sheet).toBeHidden()
       await expect(page.getByRole("button", { name: /Фильтры/ })).toContainText("1")
     })
+  })
+
+  test("the search filters while the person types, without a button to press", async ({ page }) => {
+    const creator = await prepareCreator("live", { publish: true })
+    await page.goto("/creators")
+    await page.getByRole("searchbox", { name: "Имя, занятие или тег" }).fill(creator.person.name)
+    await expect(page).toHaveURL(/[?&]q=live/)
+    await expect(page.getByRole("article").filter({ hasText: creator.displayName })).toBeVisible()
   })
 })
