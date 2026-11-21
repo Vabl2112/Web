@@ -26,5 +26,8 @@ describe("FeedPlaceholder", () => {
 
     expect(html).toContain("Здесь будет ваша лента")
     for (const href of ["/gallery", "/creators", "/listings"]) expect(html).toContain(`href="${href}"`)
+    // The footer of a signed-in person has no links to sign in or to register.
+    expect(html).not.toContain('href="/register"')
+    expect(html).not.toContain('href="/login"')
   })
 })

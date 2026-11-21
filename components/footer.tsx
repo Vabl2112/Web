@@ -29,7 +29,8 @@ const COLUMNS = [
  * The footer of the first front page: the brand with a line about EGG and the columns of links. The first one also had an address, a
  * phone, social links and a subscription form that were only drawn; only the pages that exist are here.
  */
-export function Footer() {
+export function Footer({ signedIn = false }: { signedIn?: boolean }) {
+  const columns = signedIn ? COLUMNS.filter((column) => column.title !== "Аккаунт") : COLUMNS
   return (
     <footer className="border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto max-w-7xl px-4 py-12">
@@ -42,7 +43,7 @@ export function Footer() {
               Маркетплейс для творческих людей. Находите мастеров, смотрите их работы и договаривайтесь напрямую — или покажите свои.
             </p>
           </div>
-          {COLUMNS.map((column) => (
+          {columns.map((column) => (
             <nav key={column.title} aria-label={column.title}>
               <h2 className="mb-4 font-semibold">{column.title}</h2>
               <ul className="space-y-1">

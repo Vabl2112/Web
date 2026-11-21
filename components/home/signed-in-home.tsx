@@ -51,7 +51,7 @@ export function FeedPlaceholder() {
           </div>
         </div>
       </main>
-      <Footer />
+      <Footer signedIn />
     </div>
   )
 }
