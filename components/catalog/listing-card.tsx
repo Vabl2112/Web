@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
-import { Hammer, MapPin, Package, Sparkles, type LucideIcon } from "lucide-react"
+import { BadgeCheck, Hammer, MapPin, Package, Sparkles, type LucideIcon } from "lucide-react"
+import { RatingCompact } from "@/components/catalog/rating-stars"
 import { EggImage } from "@/components/egg-image"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -54,12 +55,32 @@ function Title({ listing, className }: { listing: ListingSummary; className?: st
   )
 }
 
-/** The category and where the listing is (the city, the delivery): the line the first web had for the rating. */
+/**
+ * The rating of the maker, as the first web put it under the title (one amber star, the average and the count), and the mark "Проверен";
+ * nothing while the maker has neither.
+ */
+function MakerFacts({ listing }: { listing: ListingSummary }) {
+  if (!listing.creatorRating && !listing.creatorVerified) return null
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+      <RatingCompact rating={listing.creatorRating} />
+      {listing.creatorVerified ? (
+        <span className="flex items-center gap-1 text-green-700">
+          <BadgeCheck aria-hidden className="size-4" />
+          Проверен
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+/** The category (and the subcategory) and where the listing is: the city, the delivery, a ready product out of stock. */
 function Details({ listing }: { listing: ListingSummary }) {
   const place = placeOf(listing)
   return (
     <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-      <span>{listing.category.name}</span>
+      <span>{listing.subcategory ? `${listing.category.name} · ${listing.subcategory.name}` : listing.category.name}</span>
+      {listing.inStock === false ? <span className="text-amber-700">Нет в наличии</span> : null}
       {place ? (
         <span className="flex items-center gap-1">
           <MapPin aria-hidden className="size-3.5" />
@@ -92,6 +113,7 @@ function ListingRow({ listing, showMaker = true, action }: ListingCardProps) {
       <Photo listing={listing} sizes="160px" className="w-28 rounded-xl sm:w-40" />
       <div className="flex min-w-0 flex-1 flex-col">
         <Title listing={listing} />
+        <MakerFacts listing={listing} />
         <Details listing={listing} />
         {showMaker ? <Maker listing={listing} className="mt-2" /> : null}
         <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-3">
@@ -116,6 +138,7 @@ export function ListingCard(props: ListingCardProps) {
       <Photo listing={listing} sizes="(min-width: 1024px) 25vw, 50vw" />
       <div className="flex flex-1 flex-col p-4">
         <Title listing={listing} className="min-h-[2.75rem]" />
+        <MakerFacts listing={listing} />
         <Details listing={listing} />
         <div className="mt-3">
           <Price listing={listing} />

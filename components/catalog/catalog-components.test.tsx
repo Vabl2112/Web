@@ -79,6 +79,7 @@ describe("CreatorCard", () => {
 const listing: ListingSummary = {
   id: "0192f1c6-3333-7000-8000-000000000003",
   creator: { id: creator.id, displayName: "Анна Керамика" },
+  creatorVerified: false,
   type: "READY_PRODUCT",
   title: "Кружка ручной работы",
   category: CERAMICS,
@@ -135,6 +136,32 @@ describe("ListingCard", () => {
       expect(html).toContain("Анна Керамика")
       expect(html).toContain("Написать")
     }
+  })
+
+  it("shows the rating and the mark of the maker, the subcategory and a ready product out of stock; nothing of it when there is none", () => {
+    const full = plain(
+      renderToStaticMarkup(
+        <ListingCard
+          listing={{
+            ...listing,
+            creatorRating: { average: 4.8, count: 12 },
+            creatorVerified: true,
+            subcategory: { id: "0192f1c6-1111-7000-8000-000000000009", slug: "mugs", name: "Посуда" },
+            inStock: false,
+          }}
+        />,
+      ),
+    )
+    const bare = plain(renderToStaticMarkup(<ListingCard listing={{ ...listing, inStock: true }} />))
+
+    expect(full).toContain("4,8")
+    expect(full).toContain("12 отзывов")
+    expect(full).toContain("Проверен")
+    expect(full).toContain("Керамика · Посуда")
+    expect(full).toContain("Нет в наличии")
+    expect(bare).not.toContain("Проверен")
+    expect(bare).not.toContain("отзыв")
+    expect(bare).not.toContain("Нет в наличии")
   })
 
   it("shows the sign of the type where a listing has no photo, and the row of the list view with the photo on the left", () => {

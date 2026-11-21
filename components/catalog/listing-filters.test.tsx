@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 import type { Category } from "@/lib/catalog"
-import { ActiveFilters, ListingFilters, VISIBLE_CATEGORIES, activeChipsOf, listingFilterCount } from "./listing-filters"
+import { ActiveFilters, ListingFilters, VISIBLE_CATEGORIES, activeChipsOf, listingFilterCount, priceRangeText } from "./listing-filters"
 
 // The search of a city reads the router; the filters are checked without it.
 vi.mock("@/components/catalog/city-filter", () => ({ CityFilter: () => <div>CITY</div> }))
@@ -9,6 +9,9 @@ vi.mock("@/components/catalog/city-filter", () => ({ CityFilter: () => <div>CITY
 const CERAMICS: Category = { id: "0192f1c6-2222-7000-8000-000000000001", slug: "ceramics", name: "Керамика", children: [] }
 const JEWELRY: Category = { id: "0192f1c6-2222-7000-8000-000000000002", slug: "jewelry", name: "Украшения", children: [] }
 const CITY = "0192f1c6-4444-7000-8000-000000000001"
+const MUGS = { id: "0192f1c6-2222-7000-8000-000000000011", slug: "mugs", name: "Посуда" }
+const VASES = { id: "0192f1c6-2222-7000-8000-000000000012", slug: "vases", name: "Вазы" }
+const WITH_CHILDREN = { ...CERAMICS, children: [MUGS, VASES] } as Category
 const decode = (html: string) => html.replaceAll("&amp;", "&")
 
 describe("ListingFilters", () => {
@@ -69,5 +72,48 @@ describe("the chips of what is set", () => {
 
   it("shows nothing while nothing is set", () => {
     expect(renderToStaticMarkup(<ActiveFilters categories={[CERAMICS]} query={{}} />)).toBe("")
+  })
+
+  it("names the subcategory, the price, the stock and the mark, and counts the price as one filter", () => {
+    const query = { categoryId: WITH_CHILDREN.id, subcategoryId: MUGS.id, priceMin: 1000, priceMax: 5000, inStock: true as const, verified: true as const }
+
+    // Russian numbers are grouped with a no-break space; the words are compared with plain spaces.
+    expect(activeChipsOf([WITH_CHILDREN], query).map((chip) => chip.label.replace(/\s/g, " "))).toEqual([
+      "Керамика",
+      "Посуда",
+      "1 000 – 5 000 ₽",
+      "В наличии",
+      "Проверенные мастера",
+    ])
+    expect(listingFilterCount(query)).toBe(5)
+    expect(priceRangeText(1000, undefined).replace(/\s/g, " ")).toBe("от 1 000 ₽")
+    expect(priceRangeText(undefined, 500)).toBe("до 500 ₽")
+  })
+})
+
+describe("the tree, the price and the extras", () => {
+  it("opens the subcategories under the chosen category only, a chosen one taking itself off", () => {
+    const closed = decode(renderToStaticMarkup(<ListingFilters categories={[WITH_CHILDREN]} query={{}} />))
+    const open = decode(renderToStaticMarkup(<ListingFilters categories={[WITH_CHILDREN]} query={{ categoryId: WITH_CHILDREN.id, subcategoryId: MUGS.id }} />))
+
+    expect(closed).not.toContain("Посуда")
+    expect(open).toContain('aria-label="Подкатегории: Керамика"')
+    expect(open).toContain(`href="/listings?categoryId=${WITH_CHILDREN.id}"`)
+    expect(open).toContain(`href="/listings?categoryId=${WITH_CHILDREN.id}&subcategoryId=${VASES.id}"`)
+  })
+
+  it("asks the price in a form that keeps every other filter, and has the stock and the mark as boxes", () => {
+    const html = decode(renderToStaticMarkup(<ListingFilters categories={[CERAMICS]} query={{ type: "SERVICE", priceMin: 1000, inStock: true, view: "list" }} />))
+
+    expect(html).toContain('action="/listings"')
+    expect(html).toContain('method="get"')
+    expect(html).toContain('<input type="hidden" name="type" value="SERVICE"/>')
+    expect(html).toContain('<input type="hidden" name="inStock" value="true"/>')
+    expect(html).not.toContain('type="hidden" name="priceMin"')
+    expect(html).toMatch(/name="priceMin"[^>]*value="1000"/)
+    expect(html).toMatch(/role="checkbox" aria-checked="true"[^>]*>[\s\S]*Только в наличии/)
+    // The box of the mark adds itself to the filters that are set; the box of the stock, which is on, takes itself off.
+    expect(html).toContain('href="/listings?type=SERVICE&priceMin=1000&inStock=true&verified=true&view=list"')
+    expect(html).toContain('href="/listings?type=SERVICE&priceMin=1000&view=list"')
   })
 })

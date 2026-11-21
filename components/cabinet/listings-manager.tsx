@@ -29,6 +29,7 @@ const FIELD_NAMES = {
   title: "title",
   description: "description",
   categoryId: "categoryId",
+  subcategoryId: "subcategoryId",
   priceFromMinor: "price",
   durationText: "durationText",
   leadTimeDays: "leadTimeDays",
@@ -44,9 +45,12 @@ function ListingForm({ listing, onSaved }: { listing: MyListing | null; onSaved(
     handleSubmit,
     control,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ListingValues>({ resolver: zodResolver(listingSchema), defaultValues: listing ? listingValuesOf(listing) : EMPTY_LISTING })
   const type = useWatch({ control, name: "type" })
+  const chosenCategory = useWatch({ control, name: "categoryId" })
+  const subcategories = categories.find((category) => category.id === chosenCategory)?.children ?? []
 
   const save = handleSubmit(async (values) => {
     setFailure(null)
@@ -83,8 +87,19 @@ function ListingForm({ listing, onSaved }: { listing: MyListing | null; onSaved(
         placeholder="Выберите категорию"
         options={categories.map((category) => ({ value: category.id, label: category.name }))}
         error={errors.categoryId?.message}
-        {...register("categoryId")}
+        // A subcategory belongs to one category: another category leaves the old choice behind, and the API refuses the pair.
+        {...register("categoryId", { onChange: () => setValue("subcategoryId", "") })}
       />
+      {subcategories.length > 0 ? (
+        <SelectField
+          label="Подкатегория"
+          placeholder="Не выбрана"
+          hint="По ней покупатели находят позицию в каталоге."
+          options={subcategories.map((child) => ({ value: child.id, label: child.name }))}
+          error={errors.subcategoryId?.message}
+          {...register("subcategoryId")}
+        />
+      ) : null}
       <TextAreaField label="Описание" rows={5} error={errors.description?.message} {...register("description")} />
       <TextField label="Цена от, ₽" inputMode="decimal" hint="Пусто — «по договорённости»." error={errors.price?.message} {...register("price")} />
       {type === "SERVICE" ? <TextField label="Длительность" hint="Например, «2 часа»." error={errors.durationText?.message} {...register("durationText")} /> : null}

@@ -8,7 +8,7 @@ import { PageShell } from "@/components/catalog/page-shell"
 import { SortSelect } from "@/components/catalog/sort-select"
 import { unwrap } from "@/lib/api/answers"
 import { serverApi } from "@/lib/api/server"
-import { catalogHref, filterCount, parseCatalogQuery } from "@/lib/catalog"
+import { catalogHref, creatorSortOf, filterCount, parseCatalogQuery } from "@/lib/catalog"
 import type { SearchParams } from "@/lib/search-params"
 
 export const metadata: Metadata = { title: "Мастера — EGG" }
@@ -17,7 +17,7 @@ export default async function CreatorsPage({ searchParams }: { searchParams: Sea
   const query = parseCatalogQuery(await searchParams)
   const [categories, page] = await Promise.all([
     unwrap(serverApi.GET("/v1/categories")),
-    unwrap(serverApi.GET("/v1/creators", { params: { query: { categoryId: query.categoryId, cityId: query.cityId, q: query.q, sort: query.sort } } })),
+    unwrap(serverApi.GET("/v1/creators", { params: { query: { categoryId: query.categoryId, cityId: query.cityId, q: query.q, sort: creatorSortOf(query) } } })),
   ])
   return (
     <PageShell title="Мастера" description="Найдите своего мастера: смотрите работы и пишите напрямую.">

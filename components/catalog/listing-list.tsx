@@ -6,7 +6,7 @@ import { EmptyState, MoreButton } from "@/components/catalog/more-button"
 import { WriteButton } from "@/components/messaging/write-button"
 import { api } from "@/lib/api/client"
 import { type Page, unwrap } from "@/lib/api/hooks"
-import type { CatalogQuery, ListingSummary } from "@/lib/catalog"
+import { type CatalogQuery, type ListingSummary, listingsApiQuery } from "@/lib/catalog"
 import { useMore } from "@/lib/use-more"
 import { cn } from "@/lib/utils"
 
@@ -32,9 +32,7 @@ export function ListingList({
   const { items, hasMore, loading, failure, loadMore } = useMore(initial, (cursor) =>
     unwrap(
       creatorId === undefined
-        ? api.GET("/v1/listings", {
-            params: { query: { categoryId: query.categoryId, type: query.type ? [query.type] : undefined, cityId: query.cityId, q: query.q, cursor } },
-          })
+        ? api.GET("/v1/listings", { params: { query: { ...listingsApiQuery(query), cursor } } })
         : api.GET("/v1/creators/{id}/listings", { params: { path: { id: creatorId }, query: { cursor } } }),
     ),
   )
