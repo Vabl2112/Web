@@ -34,8 +34,16 @@ export function FilterPanel({ active, children }: FilterPanelProps) {
             {active > 0 ? <Badge className="h-5 min-w-5 rounded-full px-1.5">{active}</Badge> : null}
           </Button>
         </SheetTrigger>
-        {/* Radix skips links when it looks for the first thing to focus, so without this the search of a city would get the focus and a phone would raise its keyboard. */}
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl" onOpenAutoFocus={(event) => event.preventDefault()}>
+        {/* Radix skips links when it looks for the first thing to focus, so by default the search of a city would get the focus and a phone
+            would raise its keyboard. The sheet itself takes the focus instead, so a screen reader still lands in the dialog. */}
+        <SheetContent
+          side="bottom"
+          className="max-h-[85vh] overflow-y-auto rounded-t-2xl outline-none"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault()
+            if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus()
+          }}
+        >
           <SheetHeader>
             <SheetTitle>Фильтры</SheetTitle>
             <SheetDescription className="sr-only">Выберите категорию, тип, город или порядок списка.</SheetDescription>

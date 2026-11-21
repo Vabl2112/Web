@@ -85,8 +85,9 @@ test.describe("the public catalog", () => {
       await page.getByRole("button", { name: "Фильтры" }).click()
       const sheet = page.getByRole("dialog", { name: "Фильтры" })
       await expect(sheet.getByRole("link", { name: "По рейтингу" })).toBeVisible()
-      // The search of a city does not take the focus: a phone would raise its keyboard.
+      // The search of a city does not take the focus (a phone would raise its keyboard); the sheet itself does, so a screen reader lands in it.
       await expect(sheet.getByLabel("Город")).not.toBeFocused()
+      await expect(sheet).toBeFocused()
 
       await sheet.getByRole("link", { name: "По рейтингу" }).click()
       await expect(page).toHaveURL(/sort=RATING/)
