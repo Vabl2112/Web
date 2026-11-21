@@ -17,17 +17,20 @@ test("a creator chooses a city, and the catalog can be filtered by it (AC-02)", 
   await anonymous.dispose()
   expect(profile.city?.name).toBe("Казань")
 
-  // The filter is in the address, so a filtered page can be shared; without a city the page shows every showcase.
+  // The filter is in the address, so a filtered page can be shared; without a city the page shows every showcase. On a page of the list the
+  // city is chosen with the button of the header, as in the first prototype.
   await page.goto(`/creators?q=${encodeURIComponent(creator.person.name)}`)
+  await page.getByRole("button", { name: "Выбрать город" }).click()
   await page.getByLabel("Город", { exact: true }).fill("Казан")
   await page.getByRole("button", { name: /^Казань/ }).click()
   await expect(page).toHaveURL(/cityId=[0-9a-f-]{36}/)
-  await expect(page.getByText("Город: Казань")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Выбрать город" })).toContainText("Казань")
   await expect(page.getByRole("link", { name: new RegExp(creator.displayName) })).toBeVisible()
   const html = await (await request.get(page.url())).text()
   expect(html, "the filtered list as the server sends it").toContain(creator.displayName)
 
-  await page.getByRole("link", { name: "Сбросить" }).click()
+  await page.getByRole("button", { name: "Выбрать город" }).click()
+  await page.getByRole("button", { name: "Показать все города" }).click()
   await expect(page).not.toHaveURL(/cityId=/)
 })
 

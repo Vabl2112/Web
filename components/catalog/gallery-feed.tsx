@@ -27,8 +27,11 @@ export async function GalleryFeed({ basePath, searchParams, title, description, 
   ])
   return (
     <PageShell title={title} description={description}>
-      <FilterPanel active={filterCount(query)}>
+      <div className="hidden sm:block">
         <CategoryChips categories={categories.items} basePath={basePath} query={query} withSubcategories />
+      </div>
+      <FilterPanel active={filterCount(query)}>
+        <CategoryChips size="md" categories={categories.items} basePath={basePath} query={query} withSubcategories />
       </FilterPanel>
       <GalleryList key={catalogHref(basePath, query)} initial={page} query={query} />
       {after}
