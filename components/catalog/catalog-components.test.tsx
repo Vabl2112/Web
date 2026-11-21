@@ -118,6 +118,22 @@ describe("ListingCard", () => {
     expect(html).toContain("от 2 500 ₽")
     expect(html).toContain("Казань · доставка")
   })
+
+  it("is the product card for goods (the photo, the type on it) and the service card for a service (no photo, a line over the maker)", () => {
+    const action = <button>Написать</button>
+    const product = renderToStaticMarkup(<ListingCard listing={{ ...listing, photo: IMAGE }} action={action} />)
+    const service = renderToStaticMarkup(<ListingCard listing={{ ...listing, type: "SERVICE", photo: IMAGE }} action={action} />)
+
+    expect(product).toContain("<img")
+    expect(product).toContain("aspect-square")
+    expect(product).toContain("Готовый товар")
+    expect(service).not.toContain("<img")
+    expect(service).toContain("border-t")
+    expect(service).toContain("Услуга")
+    expect(service).toContain("Керамика")
+    expect(service).toContain("Анна Керамика")
+    expect(service).toContain("Написать")
+  })
 })
 
 const profile: CreatorProfile = { ...creator, publishedAt: "2026-10-25T09:30:00Z" }
@@ -200,6 +216,17 @@ describe("CategoryChips", () => {
   })
 })
 
+describe("Chip sizes", () => {
+  it("draws a filter in the size of the prototype page it belongs to: a small badge, a pill, a big pill", () => {
+    const chips = (size: "badge" | "md" | "lg") => renderToStaticMarkup(<CategoryChips categories={categories} basePath="/creators" query={{}} size={size} />)
+
+    expect(chips("badge")).toContain("text-xs")
+    expect(chips("badge")).not.toContain("rounded-full")
+    expect(chips("md")).toContain("px-4 py-2")
+    expect(chips("lg")).toContain("px-5 py-2.5")
+  })
+})
+
 describe("TypeTabs", () => {
   it("has a tab for every type of listing and keeps the other filters in the links", () => {
     const html = renderToStaticMarkup(<TypeTabs basePath="/listings" query={{ q: "чашка", type: "SERVICE" }} />)
@@ -222,5 +249,7 @@ describe("SearchForm", () => {
     expect(html).toContain('name="type" value="SERVICE"')
     expect(html).toContain('name="q"')
     expect(html).toContain('value="кружка"')
+    // No visible button, as in the prototype: Enter sends the form, and the button that is there is for a screen reader only.
+    expect(html).toContain("sr-only")
   })
 })

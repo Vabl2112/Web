@@ -1,6 +1,6 @@
 "use client"
 
-import { type ComponentProps, useState } from "react"
+import { type ComponentProps, type ReactNode, useState } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useChat } from "@/components/messaging/chat-provider"
@@ -27,6 +27,8 @@ interface WriteButtonProps {
   prefill?: string
   /** The words on the button; "Написать" by default. */
   label?: string
+  /** An icon before the words (the card of a product has one, as in the prototype). */
+  icon?: ReactNode
   /** More classes for the button, for the place it stands in (for example the full width of a card). */
   className?: string
   variant?: ComponentProps<typeof Button>["variant"]
@@ -38,7 +40,7 @@ const PROMINENT = "px-8 py-6 text-base font-semibold uppercase tracking-wide"
  * "Написать" on a showcase or a listing. A guest is sent to the login page and comes back to this page with the form open; a signed-in
  * person writes in a dialog and the new conversation opens in the chat window. Nothing is shown while messaging is off (AC-45).
  */
-export function WriteButton({ creatorId, listing, prominent = false, prefill, label = "Написать", className, variant }: WriteButtonProps) {
+export function WriteButton({ creatorId, listing, prominent = false, prefill, label = "Написать", icon, className, variant }: WriteButtonProps) {
   const { messaging } = useFeatures()
   const { account, isLoading } = useSession()
   const chat = useChat()
@@ -56,7 +58,10 @@ export function WriteButton({ creatorId, listing, prominent = false, prefill, la
     back.set(WRITE_PARAM, creatorId)
     return (
       <Button asChild variant={variant} className={cn("w-fit", prominent && PROMINENT, className)}>
-        <Link href={`/login?returnTo=${encodeURIComponent(`${pathname}?${back.toString()}`)}`}>{label}</Link>
+        <Link href={`/login?returnTo=${encodeURIComponent(`${pathname}?${back.toString()}`)}`}>
+          {icon}
+          {label}
+        </Link>
       </Button>
     )
   }
@@ -80,6 +85,7 @@ export function WriteButton({ creatorId, listing, prominent = false, prefill, la
   return (
     <>
       <Button variant={variant} className={cn("w-fit", prominent && PROMINENT, className)} onClick={() => setOpened(true)}>
+        {icon}
         {label}
       </Button>
       <Dialog open={open} onOpenChange={(next) => (next ? setOpened(true) : close())}>

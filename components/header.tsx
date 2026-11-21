@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { LogOut, Menu } from "lucide-react"
+import { ChevronDown, LogOut, Menu } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -111,6 +111,7 @@ export function Header() {
                       <AvatarFallback>{initialsOf(account.name)}</AvatarFallback>
                     </Avatar>
                     <span className="hidden max-w-32 truncate text-sm font-medium lg:inline-block">{account.name}</span>
+                    <ChevronDown aria-hidden className="size-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">

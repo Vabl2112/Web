@@ -1,9 +1,11 @@
 import type { Metadata } from "next"
 import { CityFilter } from "@/components/catalog/city-filter"
-import { CategoryChips, SearchForm, SortTabs } from "@/components/catalog/filters"
 import { CreatorList } from "@/components/catalog/creator-list"
 import { FilterPanel } from "@/components/catalog/filter-panel"
+import { CategoryChips } from "@/components/catalog/filters"
+import { LiveSearch } from "@/components/catalog/live-search"
 import { PageShell } from "@/components/catalog/page-shell"
+import { SortSelect } from "@/components/catalog/sort-select"
 import { unwrap } from "@/lib/api/answers"
 import { serverApi } from "@/lib/api/server"
 import { catalogHref, filterCount, parseCatalogQuery } from "@/lib/catalog"
@@ -19,12 +21,24 @@ export default async function CreatorsPage({ searchParams }: { searchParams: Sea
   ])
   return (
     <PageShell title="Мастера" description="Найдите своего мастера: смотрите работы и пишите напрямую.">
-      <SearchForm action="/creators" query={query} placeholder="Имя, занятие или тег" />
-      <FilterPanel active={filterCount(query)}>
-        <CategoryChips categories={categories.items} basePath="/creators" query={query} />
-        <SortTabs basePath="/creators" query={query} />
-        <CityFilter basePath="/creators" query={query} />
-      </FilterPanel>
+      {/* As the list of masters of the first prototype: the search and the order in one row, the categories as small badges under it. The
+          city is chosen with the button of the header; on a phone, where that button is hidden, it is in the sheet of the filters. */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <LiveSearch basePath="/creators" query={query} placeholder="Имя, занятие или тег" />
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:block">
+            <SortSelect basePath="/creators" query={query} />
+          </div>
+          <FilterPanel active={filterCount(query)}>
+            <SortSelect basePath="/creators" query={query} className="w-full" />
+            <CategoryChips size="badge" categories={categories.items} basePath="/creators" query={query} />
+            <CityFilter basePath="/creators" query={query} />
+          </FilterPanel>
+        </div>
+      </div>
+      <div className="hidden sm:block">
+        <CategoryChips size="badge" categories={categories.items} basePath="/creators" query={query} />
+      </div>
       <CreatorList key={catalogHref("/creators", query)} initial={page} query={query} />
     </PageShell>
   )
