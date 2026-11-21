@@ -78,6 +78,25 @@ test.describe("the public catalog", () => {
     await expect(page).toHaveURL(/\/listings$/)
   })
 
+  test("services and goods have the filters of the first web in a sidebar, the chips of what is set and the list view", async ({ page }) => {
+    const creator = await prepareCreator("sidebar", { publish: true })
+
+    await page.goto(`/listings?q=${encodeURIComponent(creator.person.name)}`)
+    const sidebar = page.getByRole("complementary", { name: "Фильтры" })
+    await sidebar.getByRole("link", { name: "Готовые товары" }).click()
+    await expect(page).toHaveURL(/type=READY_PRODUCT/)
+    await expect(sidebar.getByRole("link", { name: /Сбросить фильтры \(2\)/ })).toBeVisible()
+    await expect(page.getByRole("article").filter({ hasText: creator.listingTitle })).toBeVisible()
+
+    // The list view is in the address and stays with the filters; a chip takes its filter off.
+    await page.getByRole("link", { name: "Списком" }).click()
+    await expect(page).toHaveURL(/view=list/)
+    await expect(page.getByRole("article").filter({ hasText: creator.listingTitle })).toBeVisible()
+    await page.getByRole("link", { name: "Убрать фильтр: Готовые товары" }).click()
+    await expect(page).not.toHaveURL(/type=/)
+    await expect(page).toHaveURL(/view=list/)
+  })
+
   test.describe("on a phone", () => {
     test.use({ viewport: { width: 390, height: 800 } })
 

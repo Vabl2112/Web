@@ -1,4 +1,3 @@
-import type { ReactNode } from "react"
 import { FilterPanel } from "@/components/catalog/filter-panel"
 import { CategoryChips } from "@/components/catalog/filters"
 import { GalleryList } from "@/components/catalog/gallery-list"
@@ -14,12 +13,10 @@ interface GalleryFeedProps {
   searchParams: SearchParams
   title: string
   description: string
-  /** More on the page after the board (the front page shows the masters there). */
-  after?: ReactNode
 }
 
-/** The feed of works as a board of pictures with the filter of categories on top; the front page and `/gallery` show the same one. */
-export async function GalleryFeed({ basePath, searchParams, title, description, after }: GalleryFeedProps) {
+/** The feed of works as a board of pictures with the filter of categories on top (`/gallery`). */
+export async function GalleryFeed({ basePath, searchParams, title, description }: GalleryFeedProps) {
   const query = parseCatalogQuery(await searchParams)
   const [categories, page] = await Promise.all([
     unwrap(serverApi.GET("/v1/categories")),
@@ -34,7 +31,6 @@ export async function GalleryFeed({ basePath, searchParams, title, description, 
         <CategoryChips size="md" categories={categories.items} basePath={basePath} query={query} withSubcategories />
       </FilterPanel>
       <GalleryList key={catalogHref(basePath, query)} initial={page} query={query} />
-      {after}
     </PageShell>
   )
 }

@@ -126,6 +126,7 @@ export function SearchForm({ action, query, placeholder, onTextChange }: SearchF
       {query.cityId ? <input type="hidden" name="cityId" value={query.cityId} /> : null}
       {query.cityId && query.cityName ? <input type="hidden" name="cityName" value={query.cityName} /> : null}
       {query.sort ? <input type="hidden" name="sort" value={query.sort} /> : null}
+      {query.view ? <input type="hidden" name="view" value={query.view} /> : null}
       <Search aria-hidden className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         type="search"
