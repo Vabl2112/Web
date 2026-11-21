@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronDown, LogOut, Menu } from "lucide-react"
+import { ArrowRight, ChevronDown, LogOut, Menu } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -53,7 +53,10 @@ function GuestButtons() {
         <Link href="/login">Войти</Link>
       </Button>
       <Button asChild size="sm">
-        <Link href="/register">Регистрация</Link>
+        <Link href="/register">
+          Регистрация
+          <ArrowRight aria-hidden className="size-4" />
+        </Link>
       </Button>
     </div>
   )

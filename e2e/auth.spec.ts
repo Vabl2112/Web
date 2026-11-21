@@ -30,17 +30,17 @@ test.describe("registration and sign-in", () => {
     await page.getByLabel("Почта").fill(person.email)
     await page.getByLabel("Пароль").fill("password123")
 
-    await page.getByRole("button", { name: "Зарегистрироваться" }).click()
+    await page.getByRole("button", { name: "Создать аккаунт" }).click()
     await expect(page.getByText("Нужно согласие на обработку персональных данных.")).toBeVisible()
     await expect(page.getByText("Нужно подтвердить, что вам исполнилось 18 лет.")).toBeVisible()
 
     await page.getByRole("checkbox", { name: /Я принимаю/ }).click()
     await page.getByRole("checkbox", { name: /18 лет/ }).click()
-    await page.getByRole("button", { name: "Зарегистрироваться" }).click()
+    await page.getByRole("button", { name: "Создать аккаунт" }).click()
     await expect(page.getByText("Этот пароль слишком распространён. Придумайте другой.")).toBeVisible()
 
     await page.getByLabel("Пароль").fill(person.password)
-    await page.getByRole("button", { name: "Зарегистрироваться" }).click()
+    await page.getByRole("button", { name: "Создать аккаунт" }).click()
     await expect(page).toHaveURL(/\/verify-email$/)
 
     const mail = await waitForMail(person.email, /Подтвердите/)
@@ -63,7 +63,7 @@ test.describe("registration and sign-in", () => {
     await page.getByLabel("Пароль").fill(person.password)
     await page.getByRole("checkbox", { name: /Я принимаю/ }).click()
     await page.getByRole("checkbox", { name: /18 лет/ }).click()
-    await page.getByRole("button", { name: "Зарегистрироваться" }).click()
+    await page.getByRole("button", { name: "Создать аккаунт" }).click()
 
     await expect(page.getByText("Этот адрес уже зарегистрирован.")).toBeVisible()
   })
