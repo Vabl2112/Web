@@ -54,10 +54,11 @@ test.describe("the price calculator", () => {
 })
 
 test.describe("the front page", () => {
-  test("is a board of works, and a work leads to its showcase", async ({ page }) => {
+  test("is a board of works for a person who has signed in, and a work leads to its showcase", async ({ page }) => {
     const creator = await prepareCreator("front", { publish: true })
 
-    await page.goto("/")
+    // A guest gets the landing (start.spec.ts); the board is the front page of a signed-in person.
+    await signIn(page, creator.person, "/")
     await expect(page.getByRole("heading", { name: "Найдите вдохновение" })).toBeVisible()
     await expect(page.getByRole("navigation", { name: "Категории" })).toBeVisible()
     const tile = page.locator(`a[href="/creators/${creator.creatorId}"]`).first()
