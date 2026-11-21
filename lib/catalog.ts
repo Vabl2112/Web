@@ -35,6 +35,8 @@ export interface CatalogQuery {
   q?: string
   /** The order of the list of masters; absent is the newest first. */
   sort?: CreatorSort
+  /** How the services and goods are shown: absent is the grid of cards, `list` one row per listing (the toggle of the first web). */
+  view?: "list"
 }
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -63,13 +65,14 @@ export function parseCatalogQuery(params: Record<string, string | string[] | und
   const q = firstOf(params.q)?.trim().slice(0, MAX_SEARCH_LENGTH)
   if (q) query.q = q
   if (firstOf(params.sort) === "RATING") query.sort = "RATING"
+  if (firstOf(params.view) === "list") query.view = "list"
   return query
 }
 
 /** The address of a catalog page with the given filters; absent and empty ones are left out, so the same filters make the same address. */
 export function catalogHref(path: string, query: CatalogQuery): string {
   const search = new URLSearchParams()
-  for (const key of ["categoryId", "subcategoryId", "type", "cityId", "cityName", "q", "sort"] as const) {
+  for (const key of ["categoryId", "subcategoryId", "type", "cityId", "cityName", "q", "sort", "view"] as const) {
     const value = query[key]
     if (value !== undefined && value !== "") search.set(key, value)
   }

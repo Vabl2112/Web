@@ -25,8 +25,8 @@ interface WriteButtonProps {
   prominent?: boolean
   /** A text the box starts with, for a message that is prepared (the summary of the calculator). */
   prefill?: string
-  /** The words on the button; "Написать" by default. */
-  label?: string
+  /** The words on the button; "Написать" by default. It may be markup, such as a shorter text for a narrow card on a phone. */
+  label?: ReactNode
   /** An icon before the words (the card of a product has one, as in the prototype). */
   icon?: ReactNode
   /** More classes for the button, for the place it stands in (for example the full width of a card). */

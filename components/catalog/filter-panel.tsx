@@ -5,12 +5,15 @@ import { useSearchParams } from "next/navigation"
 import { SlidersHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
 
 interface FilterPanelProps {
   /** How many filters are set (`filterCount`); shown on the button. */
   active: number
   /** All the filters of the page, for the sheet: links, the select of the order and the search of a city. */
   children: ReactNode
+  /** Where the button disappears because the page shows its filters itself: from a tablet (`sm`) or, with a sidebar, from a laptop (`lg`). */
+  hiddenFrom?: "sm" | "lg"
 }
 
 /**
@@ -18,14 +21,14 @@ interface FilterPanelProps {
  * everything in it. From a tablet up there is no button: the page shows its filters itself, where the prototype puts them. A filter is a
  * link or changes the address, so the sheet closes by itself when the address changes.
  */
-export function FilterPanel({ active, children }: FilterPanelProps) {
+export function FilterPanel({ active, children, hiddenFrom = "sm" }: FilterPanelProps) {
   const search = useSearchParams().toString()
   // The sheet is open for the address it was opened on; another address (a filter was chosen) closes it without an effect.
   const [openedOn, setOpenedOn] = useState<string | null>(null)
   return (
     <Sheet open={openedOn === search} onOpenChange={(open) => setOpenedOn(open ? search : null)}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="icon" className="relative shrink-0 sm:hidden" aria-label={active > 0 ? `Фильтры, выбрано: ${active}` : "Фильтры"}>
+        <Button variant="outline" size="icon" className={cn("relative shrink-0", hiddenFrom === "sm" ? "sm:hidden" : "lg:hidden")} aria-label={active > 0 ? `Фильтры, выбрано: ${active}` : "Фильтры"}>
           <SlidersHorizontal aria-hidden className="size-4" />
           {active > 0 ? (
             <span
