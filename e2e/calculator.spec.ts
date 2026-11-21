@@ -53,13 +53,13 @@ test.describe("the price calculator", () => {
   })
 })
 
-test.describe("the front page", () => {
-  test("is a board of works for a person who has signed in, and a work leads to its showcase", async ({ page }) => {
+test.describe("the gallery", () => {
+  test("is a board of works, and a work leads to its showcase", async ({ page }) => {
     const creator = await prepareCreator("front", { publish: true })
 
-    // A guest gets the landing (start.spec.ts); the board is the front page of a signed-in person.
-    await signIn(page, creator.person, "/")
-    await expect(page.getByRole("heading", { name: "Найдите вдохновение" })).toBeVisible()
+    // The board used to be the front page (ADR 0018); it lives at /gallery since the front page is the landing (start.spec.ts).
+    await page.goto("/gallery")
+    await expect(page.getByRole("heading", { name: "Фотогалерея", level: 1 })).toBeVisible()
     await expect(page.getByRole("navigation", { name: "Категории" })).toBeVisible()
     const tile = page.locator(`a[href="/creators/${creator.creatorId}"]`).first()
     await expect(tile).toBeVisible()
