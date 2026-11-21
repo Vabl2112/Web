@@ -1,7 +1,30 @@
 import { expect, test } from "@playwright/test"
-import { Api, PASSWORD, newPerson, prepareCreator, registerConfirmed, signIn } from "./support/world"
+import { Api, PASSWORD, messagingIsOn, newPerson, prepareCreator, registerConfirmed, signIn } from "./support/world"
 
-// AC-34 in the part of the web client: the deletion of the account, asked for on the page "Аккаунт" of the cabinet.
+// The page "Аккаунт" of the cabinet: the settings of the letters and, in the part of the web client, AC-34 (the deletion of the account).
+test.describe("the settings of the letters", () => {
+  test("the letter about a new message can be switched off and on, and the choice stays", async ({ page }) => {
+    test.skip(!(await messagingIsOn()), "there is no such letter while messaging is off in this backend")
+    const person = newPerson("letters")
+    await registerConfirmed(person)
+    const api = await Api.login(person.email, person.password)
+    await signIn(page, person, "/cabinet/account")
+
+    const toggle = page.getByRole("switch", { name: "Письмо о новом сообщении" })
+    await expect(toggle).toBeChecked()
+    await toggle.click()
+    await expect(toggle).not.toBeChecked()
+    await expect.poll(async () => ((await (await api.get("/me/notification-settings")).json()) as { newMessage: boolean }).newMessage).toBe(false)
+
+    await page.reload()
+    await expect(toggle).not.toBeChecked()
+    await toggle.click()
+    await expect(toggle).toBeChecked()
+    await expect.poll(async () => ((await (await api.get("/me/notification-settings")).json()) as { newMessage: boolean }).newMessage).toBe(true)
+    await api.dispose()
+  })
+})
+
 test.describe("deleting the account", () => {
   test("the question comes first, a refusal changes nothing, a yes ends the account and shows the farewell page (AC-34)", async ({ page }) => {
     const person = newPerson("leaving")

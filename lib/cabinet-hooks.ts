@@ -49,3 +49,11 @@ export function useMyCalculator() {
   const { data, error, isLoading, mutate: change } = useGet(CALCULATOR_KEY, () => api.GET("/v1/me/calculator"), QUIET)
   return { calculator: data, isLoading, change, none: error?.status === 404, error: error?.status === 404 ? undefined : error }
 }
+
+export const NOTIFICATIONS_KEY = "my-notification-settings"
+
+/** The e-mail settings of the signed-in person; `enabled` is off while there is nothing to set (messaging is off in the backend). */
+export function useNotificationSettings(enabled: boolean) {
+  const { data, error, isLoading, mutate: change } = useGet(enabled ? NOTIFICATIONS_KEY : null, () => api.GET("/v1/me/notification-settings"), QUIET)
+  return { settings: data, error, isLoading, change }
+}

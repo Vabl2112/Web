@@ -10,6 +10,7 @@ export type MyListing = Schemas["MyListing"]
 export type MyPortfolioItem = Schemas["MyPortfolioItem"]
 export type CreatorProfileInput = Schemas["CreatorProfileInput"]
 export type ListingInput = Schemas["ListingInput"]
+export type PortfolioItemInput = Schemas["PortfolioItemInput"]
 
 export const SHOWCASE_STATUS_LABELS: Record<ShowcaseStatus, string> = {
   DRAFT: "Черновик",
