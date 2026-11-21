@@ -13,6 +13,7 @@ const ITEMS: SectionNavItem[] = [
   { href: "/cabinet/listings", label: "Позиции" },
   { href: "/cabinet/portfolio", label: "Портфолио" },
   { href: "/cabinet/calculator", label: "Калькулятор" },
+  { href: "/cabinet/account", label: "Аккаунт" },
 ]
 
 export function CabinetNav() {

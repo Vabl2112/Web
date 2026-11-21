@@ -41,6 +41,7 @@ function accountLinks(isAdmin: boolean, isCreator: boolean, messaging: boolean):
   return [
     { href: "/cabinet", label: isCreator ? "Кабинет" : "Стать создателем" },
     ...(messaging ? [{ label: "Сообщения" }] : []),
+    { href: "/cabinet/account", label: "Аккаунт" },
     ...(isAdmin ? [{ href: "/admin/moderation", label: "Модерация" }, { href: "/admin/metrics", label: "Метрики" }] : []),
   ]
 }
