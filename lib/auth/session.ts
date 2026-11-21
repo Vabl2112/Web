@@ -2,6 +2,7 @@
 
 import { useCallback } from "react"
 import { mutate as mutateAll } from "swr"
+import { expectOk } from "@/lib/api/answers"
 import { api } from "@/lib/api/client"
 import { ApiError } from "@/lib/api/errors"
 import { unwrap, useRead } from "@/lib/api/hooks"
@@ -50,6 +51,12 @@ export function useSession() {
     await forgetEverything()
     await mutate(null, { revalidate: false })
   }, [mutate])
+  /** Deletes the account (AC-34): the API ends every session at once, so there is nothing to log out of; only what was read is forgotten. */
+  const deleteAccount = useCallback(async () => {
+    await expectOk(api.DELETE("/v1/me"))
+    await forgetEverything()
+    await mutate(null, { revalidate: false })
+  }, [mutate])
   return {
     account,
     isLoading,
@@ -63,5 +70,6 @@ export function useSession() {
       return mutate(signed, { revalidate: false })
     },
     signOut,
+    deleteAccount,
   }
 }
