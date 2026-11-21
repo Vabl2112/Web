@@ -6,13 +6,13 @@ import { WriteButton } from "@/components/messaging/write-button"
 import { api } from "@/lib/api/client"
 import type { Page } from "@/lib/api/hooks"
 import { unwrap } from "@/lib/api/hooks"
-import type { CatalogQuery, CreatorSummary } from "@/lib/catalog"
+import { type CatalogQuery, type CreatorSummary, creatorSortOf } from "@/lib/catalog"
 import { useMore } from "@/lib/use-more"
 
 /** The showcases of a page: the first page came from the server, "Show more" reads the next ones with the same filters. */
 export function CreatorList({ initial, query }: { initial: Page<CreatorSummary>; query: CatalogQuery }) {
   const { items, hasMore, loading, failure, loadMore } = useMore(initial, (cursor) =>
-    unwrap(api.GET("/v1/creators", { params: { query: { categoryId: query.categoryId, cityId: query.cityId, q: query.q, sort: query.sort, cursor } } })),
+    unwrap(api.GET("/v1/creators", { params: { query: { categoryId: query.categoryId, cityId: query.cityId, q: query.q, sort: creatorSortOf(query), cursor } } })),
   )
   if (items.length === 0) return <EmptyState>Ничего не нашлось. Попробуйте другой запрос или категорию.</EmptyState>
   return (

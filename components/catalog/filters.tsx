@@ -118,14 +118,25 @@ interface SearchFormProps {
  * The search as the first prototype has it: a field with a magnifier and no button. It is still a plain form that sends `GET` on Enter, so
  * it works without scripts, and it keeps the other filters in hidden fields.
  */
+/**
+ * The filters of the address as hidden fields of a `GET` form, so that a form of one filter (the search, the price) keeps all the others.
+ * They are written the way `catalogHref` writes them, so the address after the form is the same as after a link.
+ */
+export function HiddenFilters({ query }: { query: CatalogQuery }) {
+  const search = new URLSearchParams(catalogHref("", query).replace(/^\?/, ""))
+  return (
+    <>
+      {[...search.entries()].map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
+    </>
+  )
+}
+
 export function SearchForm({ action, query, placeholder, onTextChange }: SearchFormProps) {
   return (
     <form action={action} method="get" role="search" className="relative flex-1 sm:max-w-md">
-      {query.categoryId ? <input type="hidden" name="categoryId" value={query.categoryId} /> : null}
-      {query.type ? <input type="hidden" name="type" value={query.type} /> : null}
-      {query.cityId ? <input type="hidden" name="cityId" value={query.cityId} /> : null}
-      {query.cityId && query.cityName ? <input type="hidden" name="cityName" value={query.cityName} /> : null}
-      {query.sort ? <input type="hidden" name="sort" value={query.sort} /> : null}
+      <HiddenFilters query={{ ...query, q: undefined }} />
       <Search aria-hidden className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         type="search"

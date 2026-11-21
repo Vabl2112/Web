@@ -32,6 +32,7 @@ export function pluralRu(count: number, forms: readonly [string, string, string]
 
 export const feedbackCountText = (count: number) => `${count} ${pluralRu(count, ["отзыв", "отзыва", "отзывов"])}`
 export const worksCountText = (count: number) => `${count} ${pluralRu(count, ["работа", "работы", "работ"])}`
+export const listingCountText = (count: number) => `${count} ${pluralRu(count, ["позиция", "позиции", "позиций"])}`
 
 /** The years of experience from the year the creator started; a year in the future (a clock that is off) is no years. */
 export function experienceYears(sinceYear: number, now: Date = new Date()): number {

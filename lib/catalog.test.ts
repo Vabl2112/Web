@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { catalogHref, filterCount, parseCatalogQuery } from "./catalog"
+import { catalogHref, creatorSortOf, filterCount, listingsApiQuery, parseCatalogQuery } from "./catalog"
 
 const CATEGORY = "0192f1c6-1111-7000-8000-000000000001"
 const SUBCATEGORY = "0192f1c6-1111-7000-8000-000000000011"
@@ -38,6 +38,37 @@ describe("parseCatalogQuery", () => {
   it("takes the first of a repeated parameter and cuts a long search to the limit of the contract", () => {
     expect(parseCatalogQuery({ type: ["MADE_TO_ORDER", "SERVICE"] }).type).toBe("MADE_TO_ORDER")
     expect(parseCatalogQuery({ q: "я".repeat(300) }).q).toHaveLength(100)
+  })
+
+  it("reads the price, the stock, the mark and the orders of services and goods, and drops what is not valid", () => {
+    expect(parseCatalogQuery({ priceMin: "1000", priceMax: "5000", inStock: "true", verified: "true", sort: "PRICE_DESC" })).toEqual({
+      priceMin: 1000,
+      priceMax: 5000,
+      inStock: true,
+      verified: true,
+      sort: "PRICE_DESC",
+    })
+    expect(parseCatalogQuery({ priceMin: "-5", priceMax: "1,5", inStock: "1", sort: "CHEAPEST" })).toEqual({})
+    // A range turned upside down keeps its lower bound only: the API would refuse it.
+    expect(parseCatalogQuery({ priceMin: "5000", priceMax: "1000" })).toEqual({ priceMin: 5000 })
+    expect(parseCatalogQuery({ priceMin: "99999999999" })).toEqual({})
+  })
+
+  it("gives the masters only the order they know", () => {
+    expect(creatorSortOf(parseCatalogQuery({ sort: "RATING" }))).toBe("RATING")
+    expect(creatorSortOf(parseCatalogQuery({ sort: "PRICE_ASC" }))).toBeUndefined()
+  })
+})
+
+describe("listingsApiQuery", () => {
+  it("asks the API in kopecks and with the type as a list", () => {
+    expect(listingsApiQuery({ type: "SERVICE", priceMin: 1000, priceMax: 2500, inStock: true, sort: "RATING" })).toMatchObject({
+      type: ["SERVICE"],
+      priceMin: 100000,
+      priceMax: 250000,
+      inStock: true,
+      sort: "RATING",
+    })
   })
 })
 

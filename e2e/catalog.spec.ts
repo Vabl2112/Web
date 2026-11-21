@@ -78,6 +78,57 @@ test.describe("the public catalog", () => {
     await expect(page).toHaveURL(/\/listings$/)
   })
 
+  test("services and goods have the filters of the first web in a sidebar, the chips of what is set and the list view", async ({ page }) => {
+    const creator = await prepareCreator("sidebar", { publish: true })
+
+    await page.goto(`/listings?q=${encodeURIComponent(creator.person.name)}`)
+    const sidebar = page.getByRole("complementary", { name: "Фильтры" })
+    await sidebar.getByRole("link", { name: "Готовые товары" }).click()
+    await expect(page).toHaveURL(/type=READY_PRODUCT/)
+    await expect(sidebar.getByRole("link", { name: /Сбросить фильтры \(2\)/ })).toBeVisible()
+    await expect(page.getByRole("article").filter({ hasText: creator.listingTitle })).toBeVisible()
+
+    // The list view is in the address and stays with the filters; a chip takes its filter off.
+    await page.getByRole("link", { name: "Списком" }).click()
+    await expect(page).toHaveURL(/view=list/)
+    await expect(page.getByRole("article").filter({ hasText: creator.listingTitle })).toBeVisible()
+    await page.getByRole("link", { name: "Убрать фильтр: Готовые товары" }).click()
+    await expect(page).not.toHaveURL(/type=/)
+    await expect(page).toHaveURL(/view=list/)
+  })
+
+  // ADR 0022: the price, the stock, the order and the count come from the API.
+  test("services and goods are filtered by price and stock, ordered and counted", async ({ page }) => {
+    const creator = await prepareCreator("price", { publish: true })
+    const card = page.getByRole("article").filter({ hasText: creator.listingTitle })
+
+    // The search is fuzzy, so other makers of the run may be found too: the count is checked as a count, the card by itself.
+    await page.goto(`/listings?q=${encodeURIComponent(creator.person.name)}`)
+    await expect(card).toBeVisible()
+    await expect(page.getByText(/^Найдено \d+ позици(я|и|й)$/)).toBeVisible()
+    const sidebar = page.getByRole("complementary", { name: "Фильтры" })
+    // The listing costs from 2 500 ₽: a lower bound of 3 000 ₽ leaves it out, of 2 000 ₽ keeps it; the other filters stay.
+    await sidebar.getByLabel("Цена от, ₽").fill("3000")
+    await sidebar.getByRole("button", { name: "Применить" }).click()
+    await expect(page).toHaveURL(/priceMin=3000/)
+    await expect(page).toHaveURL(/q=/)
+    await expect(card).toHaveCount(0)
+    await sidebar.getByLabel("Цена от, ₽").fill("2000")
+    await sidebar.getByRole("button", { name: "Применить" }).click()
+    await expect(card).toBeVisible()
+    await expect(page.getByRole("link", { name: /Убрать фильтр: от 2.000 ₽/ })).toBeVisible()
+
+    await sidebar.getByRole("checkbox", { name: "Только в наличии" }).click()
+    await expect(page).toHaveURL(/inStock=true/)
+    await expect(card).toBeVisible()
+
+    await page.getByRole("combobox", { name: "Порядок" }).click()
+    await page.getByRole("option", { name: "Сначала дешевле" }).click()
+    await expect(page).toHaveURL(/sort=PRICE_ASC/)
+    await expect(page).toHaveURL(/priceMin=2000/)
+    await expect(card).toBeVisible()
+  })
+
   test.describe("on a phone", () => {
     test.use({ viewport: { width: 390, height: 800 } })
 

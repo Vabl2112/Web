@@ -428,8 +428,10 @@ export interface paths {
         };
         /**
          * List listings of all three types
-         * @description Services, ready products and made-to-order items in one list, newest first. Only approved `ACTIVE` listings of published showcases.
+         * @description Services, ready products and made-to-order items in one list, newest first by default. Only approved `ACTIVE` listings of published showcases.
          *     With `cityId` and `includeDelivery=true` (the default) listings with delivery are added to the listings of that city.
+         *     The filters of the page of services and goods (ADR 0022): the subcategory, the price, the stock, the verified mark of the maker and the order.
+         *     The page also says how many listings match the filters (`total`).
          */
         get: operations["listListings"];
         put?: never;
@@ -1546,14 +1548,28 @@ export interface components {
         };
         /** @enum {string} */
         ListingType: "SERVICE" | "READY_PRODUCT" | "MADE_TO_ORDER";
-        /** @description A listing card in lists. `priceFromMinor` is omitted for "by agreement". */
+        /**
+         * @default NEWEST
+         * @enum {string}
+         */
+        ListingSort: "NEWEST" | "PRICE_ASC" | "PRICE_DESC" | "RATING";
+        /**
+         * @description A listing card in lists. `priceFromMinor` is omitted for "by agreement". `creatorRating` is omitted while the maker has no feedback,
+         *     `inStock` for every type but `READY_PRODUCT`, `subcategory` when the maker did not choose one.
+         */
         ListingSummary: {
             /** Format: uuid */
             id: string;
             creator: components["schemas"]["CreatorRef"];
+            creatorRating?: components["schemas"]["Rating"];
+            /** @description The mark "verified" of the showcase of the maker. */
+            creatorVerified: boolean;
             type: components["schemas"]["ListingType"];
             title: string;
             category: components["schemas"]["CategoryRef"];
+            subcategory?: components["schemas"]["CategoryRef"];
+            /** @description Only for `READY_PRODUCT`. */
+            inStock?: boolean;
             /**
              * Format: int64
              * @description Starting price in minor units (kopecks); omitted means "by agreement".
@@ -1567,6 +1583,11 @@ export interface components {
         };
         ListingSummaryPage: components["schemas"]["CursorPage"] & {
             items: components["schemas"]["ListingSummary"][];
+            /**
+             * Format: int32
+             * @description How many listings match the filters, on every page.
+             */
+            total: number;
         };
         /**
          * @description A listing. Fields specific to a type are present only for that type: `durationText` for `SERVICE`, `inStock` for `READY_PRODUCT`, `leadTimeDays` (1..365) for `MADE_TO_ORDER`. `priceFromMinor` is omitted for "by agreement".
@@ -1602,6 +1623,7 @@ export interface components {
             title: string;
             description: string;
             category: components["schemas"]["CategoryRef"];
+            subcategory?: components["schemas"]["CategoryRef"];
             /** Format: int64 */
             priceFromMinor?: number;
             currency: string;
@@ -1820,6 +1842,11 @@ export interface components {
             /** Format: uuid */
             categoryId: string;
             /**
+             * Format: uuid
+             * @description A subcategory of `categoryId`; omitted means none.
+             */
+            subcategoryId?: string;
+            /**
              * Format: int64
              * @description Starting price in minor units (kopecks); omitted means "by agreement".
              */
@@ -1902,6 +1929,7 @@ export interface components {
             title: string;
             description: string;
             category: components["schemas"]["CategoryRef"];
+            subcategory?: components["schemas"]["CategoryRef"];
             /** Format: int64 */
             priceFromMinor?: number;
             currency: string;
@@ -3471,6 +3499,21 @@ export interface operations {
             query?: {
                 /** @description Category filter. */
                 categoryId?: components["parameters"]["CategoryId"];
+                /** @description Subcategory filter. */
+                subcategoryId?: string;
+                /** @description The lowest starting price, in minor units (kopecks). With a price bound, listings "by agreement" are left out. */
+                priceMin?: number;
+                /** @description The highest starting price, in minor units (kopecks); not below `priceMin`. */
+                priceMax?: number;
+                /** @description `true`: only ready products that are in stock (services and made-to-order items are left out). */
+                inStock?: boolean;
+                /** @description `true`: only listings of showcases with the mark "verified". */
+                verified?: boolean;
+                /**
+                 * @description The order. `NEWEST` (the default) is the newest first. `PRICE_ASC` and `PRICE_DESC` go by the starting price, listings "by agreement" last.
+                 *     `RATING` puts the listings of the best rated makers first (the average of the stars, then the number of feedbacks, then the newest); makers without feedback come last.
+                 */
+                sort?: components["schemas"]["ListingSort"];
                 /** @description Listing types to include; repeat the parameter for several. */
                 type?: components["schemas"]["ListingType"][];
                 /** @description City filter. */

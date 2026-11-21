@@ -4,7 +4,8 @@ import { type ReactNode, useId, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Controller, useForm } from "react-hook-form"
+import { ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react"
+import { Controller, useForm, useWatch } from "react-hook-form"
 import { FormAlert } from "@/components/auth/form-alert"
 import { TextField } from "@/components/auth/text-field"
 import { Button } from "@/components/ui/button"
@@ -16,6 +17,7 @@ import { unwrap } from "@/lib/api/hooks"
 import { type RegisterValues, MIN_PASSWORD_LENGTH, registerSchema } from "@/lib/auth/schemas"
 import { useSession } from "@/lib/auth/session"
 import { CONSENT_VERSION } from "@/lib/consent"
+import { cn } from "@/lib/utils"
 
 interface CheckFieldProps {
   checked: boolean
@@ -43,6 +45,28 @@ function CheckField({ checked, onChange, error, children }: CheckFieldProps) {
   )
 }
 
+/**
+ * The rule of the password under the field, ticked green as soon as it holds (the first prototype listed four rules; the API has only
+ * the length and the list of common passwords, which it checks on sending).
+ */
+function PasswordLength({ password }: { password: string }) {
+  const met = password.length >= MIN_PASSWORD_LENGTH
+  return (
+    <span className={cn("flex items-center gap-2 text-xs transition-colors", met ? "text-green-600" : "text-muted-foreground")}>
+      <span
+        aria-hidden
+        className={cn(
+          "flex size-4 items-center justify-center rounded-full border transition-colors",
+          met ? "border-green-600 bg-green-600 text-white" : "border-muted-foreground",
+        )}
+      >
+        {met ? <Check className="size-3" /> : null}
+      </span>
+      Не короче {MIN_PASSWORD_LENGTH} символов
+    </span>
+  )
+}
+
 const FORM_FIELDS = ["email", "name", "password"] as const
 
 /**
@@ -64,6 +88,8 @@ export function RegisterForm() {
     resolver: zodResolver(registerSchema),
     defaultValues: { email: "", name: "", password: "", consent: false, adult: false },
   })
+  const [showPassword, setShowPassword] = useState(false)
+  const password = useWatch({ control, name: "password" })
 
   const submit = handleSubmit(async ({ email, name, password }) => {
     setFailure(null)
@@ -103,15 +129,47 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form onSubmit={submit} noValidate className="flex flex-col gap-5">
       {failure ? <FormAlert message={failure} /> : null}
-      <TextField label="Имя" autoComplete="name" hint="Его увидит собеседник в сообщениях." error={errors.name?.message} {...register("name")} />
-      <TextField label="Почта" type="email" autoComplete="email" error={errors.email?.message} {...register("email")} />
+      <TextField
+        label="Имя"
+        icon={User}
+        placeholder="Ваше имя"
+        autoComplete="name"
+        className="h-12"
+        hint="Его увидит собеседник в сообщениях."
+        error={errors.name?.message}
+        {...register("name")}
+      />
+      <TextField
+        label="Почта"
+        icon={Mail}
+        type="email"
+        placeholder="name@example.com"
+        autoComplete="email"
+        className="h-12"
+        error={errors.email?.message}
+        {...register("email")}
+      />
       <TextField
         label="Пароль"
-        type="password"
+        icon={Lock}
+        type={showPassword ? "text" : "password"}
+        placeholder="Придумайте пароль"
         autoComplete="new-password"
-        hint={`Не короче ${MIN_PASSWORD_LENGTH} символов.`}
+        className="h-12"
+        end={
+          <button
+            type="button"
+            onClick={() => setShowPassword((shown) => !shown)}
+            aria-label={showPassword ? "Скрыть символы" : "Показать символы"}
+            aria-pressed={showPassword}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {showPassword ? <EyeOff aria-hidden className="size-5" /> : <Eye aria-hidden className="size-5" />}
+          </button>
+        }
+        hint={<PasswordLength password={password} />}
         error={errors.password?.message}
         {...register("password")}
       />
@@ -141,15 +199,19 @@ export function RegisterForm() {
           </CheckField>
         )}
       />
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Создаём аккаунт…" : "Зарегистрироваться"}
+      <Button type="submit" disabled={isSubmitting} className="h-12 w-full gap-2 text-base">
+        {isSubmitting ? (
+          <>
+            <Loader2 aria-hidden className="size-5 animate-spin" />
+            Создаём аккаунт…
+          </>
+        ) : (
+          <>
+            Создать аккаунт
+            <ArrowRight aria-hidden className="size-5" />
+          </>
+        )}
       </Button>
-      <p className="text-sm text-muted-foreground">
-        Уже есть аккаунт?{" "}
-        <Link href="/login" className="underline underline-offset-4">
-          Войти
-        </Link>
-      </p>
     </form>
   )
 }

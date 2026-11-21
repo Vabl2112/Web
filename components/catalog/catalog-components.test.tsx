@@ -79,6 +79,7 @@ describe("CreatorCard", () => {
 const listing: ListingSummary = {
   id: "0192f1c6-3333-7000-8000-000000000003",
   creator: { id: creator.id, displayName: "Анна Керамика" },
+  creatorVerified: false,
   type: "READY_PRODUCT",
   title: "Кружка ручной работы",
   category: CERAMICS,
@@ -119,20 +120,59 @@ describe("ListingCard", () => {
     expect(html).toContain("Казань · доставка")
   })
 
-  it("is the product card for goods (the photo, the type on it) and the service card for a service (no photo, a line over the maker)", () => {
+  it("is the product card of the first web for every type: the square photo with the type on it, the category, the maker", () => {
     const action = <button>Написать</button>
     const product = renderToStaticMarkup(<ListingCard listing={{ ...listing, photo: IMAGE }} action={action} />)
     const service = renderToStaticMarkup(<ListingCard listing={{ ...listing, type: "SERVICE", photo: IMAGE }} action={action} />)
 
-    expect(product).toContain("<img")
-    expect(product).toContain("aspect-square")
-    expect(product).toContain("Готовый товар")
-    expect(service).not.toContain("<img")
-    expect(service).toContain("border-t")
-    expect(service).toContain("Услуга")
-    expect(service).toContain("Керамика")
-    expect(service).toContain("Анна Керамика")
-    expect(service).toContain("Написать")
+    for (const [html, type] of [
+      [product, "Готовый товар"],
+      [service, "Услуга"],
+    ] as const) {
+      expect(html).toContain("<img")
+      expect(html).toContain("aspect-square")
+      expect(html).toContain(type)
+      expect(html).toContain("Керамика")
+      expect(html).toContain("Анна Керамика")
+      expect(html).toContain("Написать")
+    }
+  })
+
+  it("shows the rating and the mark of the maker, the subcategory and a ready product out of stock; nothing of it when there is none", () => {
+    const full = plain(
+      renderToStaticMarkup(
+        <ListingCard
+          listing={{
+            ...listing,
+            creatorRating: { average: 4.8, count: 12 },
+            creatorVerified: true,
+            subcategory: { id: "0192f1c6-1111-7000-8000-000000000009", slug: "mugs", name: "Посуда" },
+            inStock: false,
+          }}
+        />,
+      ),
+    )
+    const bare = plain(renderToStaticMarkup(<ListingCard listing={{ ...listing, inStock: true }} />))
+
+    expect(full).toContain("4,8")
+    expect(full).toContain("12 отзывов")
+    expect(full).toContain("Проверен")
+    expect(full).toContain("Керамика · Посуда")
+    expect(full).toContain("Нет в наличии")
+    expect(bare).not.toContain("Проверен")
+    expect(bare).not.toContain("отзыв")
+    expect(bare).not.toContain("Нет в наличии")
+  })
+
+  it("shows the sign of the type where a listing has no photo, and the row of the list view with the photo on the left", () => {
+    const noPhoto = renderToStaticMarkup(<ListingCard listing={listing} />)
+    const row = renderToStaticMarkup(<ListingCard listing={{ ...listing, photo: IMAGE }} view="list" />)
+
+    expect(noPhoto).not.toContain("<img")
+    expect(noPhoto).toContain("lucide-package")
+    expect(row).toContain("<img")
+    expect(row).toContain("w-28")
+    expect(row).toContain("Кружка ручной работы")
   })
 })
 
